@@ -1,6 +1,6 @@
 use("hadome", [:failures, :measurement, :orphans, :parse, :render, :shrunk])
-use("kyohi", [:refusal, :refuse])
-use("moji", [:ends_with, :includes, :lines, :starts_with])
+use("kyohi", [:enforce, :refusal])
+use("moji", [:ends_with, :includes, :lines, :starts_with, :trim])
 use("retsu", [:drop_while, :enumerate, :first, :size, :take_while])
 
 def root()
@@ -86,11 +86,17 @@ def advise(rows, kind, ms)
   )
 end
 
-refuse(unmeasured)
+enforce(unmeasured, [(fs) -> fs], {kind: :first})
 rows = parse(read_file(at("kernel-baseline.txt")))
 rust = map((m) -> measurement(m, crate_lines(m)), members)
 host = [measurement("arnes-blue", host_functions)]
-refuse(append(failures(rows, "rust", rust), failures(rows, "host", host)))
+
+enforce(
+  append(failures(rows, "rust", rust), failures(rows, "host", host)),
+  [(fs) -> fs],
+  {kind: :first}
+)
+
 advise(rows, "rust", rust)
 advise(rows, "host", host)
 

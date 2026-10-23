@@ -38,7 +38,7 @@ end
 
 def trim_end(p)
   if present(p) and
-    includes(",.;:)", take_chars(drop_chars(p, length(p) - 1), 1))
+      includes(",.;:)", take_chars(drop_chars(p, length(p) - 1), 1))
     trim_end(take_chars(p, length(p) - 1))
   else
     p
