@@ -1,0 +1,101 @@
+use(
+  "moji",
+  [
+    :drop_chars,
+    :ends_with,
+    :includes,
+    :present,
+    :starts_with,
+    :take_chars,
+    :words
+  ]
+)
+
+use("retsu", [:contains, :first, :push])
+use("yushutsu", [:render])
+
+# sanshou (参照) — reference: `@path` mentions in a prompt, attached.
+#
+# A before-submit hook: each `@path` token naming a readable file no larger
+# than arnes's `mention-max-bytes` is appended to the prompt as a fenced
+# block, once per path, and the hint says how many were attached. A path
+# that is missing, a directory or too large is left as typed. Files are read
+# through the host (`arnes_read_file`), the one filesystem capability a hosted
+# bidama has.
+
+def exports()
+  render([["hook", "before-submit", "expand", "attach @path mentions"]])
+end
+
+# A mention token's path: the text after `@`, trailing punctuation dropped.
+def path(token)
+  if starts_with(token, "@")
+    trim_end(drop_chars(token, 1))
+  else
+    ""
+  end
+end
+
+def trim_end(p)
+  if present(p) and
+    includes(",.;:)", take_chars(drop_chars(p, length(p) - 1), 1))
+    trim_end(take_chars(p, length(p) - 1))
+  else
+    p
+  end
+end
+
+# The paths mentioned in `prompt`, in order, each once.
+def paths(prompt)
+  ps = filter((p) -> present(p), map(path, words(prompt)))
+  reduce(once, [], ps)
+end
+
+def once(acc, p)
+  if contains(acc, p)
+    acc
+  else
+    push(acc, p)
+  end
+end
+
+def line_end(text)
+  if ends_with(text, "\n")
+    text
+  else
+    "#{text}\n"
+  end
+end
+
+def block(p, text)
+  body = line_end(text)
+  "\n\n--- @#{p} ---\n#{body}--- end @#{p} ---"
+end
+
+# The hook: the prompt with every attachable mention appended, or nil when
+# there is none (the prompt goes as typed).
+# waive B0001: arnes host call
+def expand(prompt)
+  max = to_int(arnes_state("mention-max-bytes"))
+  found = filter(
+    (pt) -> nth(1, pt) != nil,
+    map((p) -> [p, arnes_read_file(p, max)], paths(prompt))
+  )
+  if length(found) == 0
+    nil
+  else
+    arnes_hint("attached #{length(found)} file(s)")
+    reduce((acc, pt) -> "#{acc}#{block(first(pt), nth(1, pt))}", prompt, found)
+  end
+end
+
+test "mention paths drop trailing punctuation and repeat once"
+  assert paths("see @a.rs, and @b/c.md). @a.rs again @") == ["a.rs", "b/c.md"]
+  assert paths("no mentions") == []
+  assert path("x@y") == ""
+end
+
+test "a block fences the text with its path"
+  assert block("a", "x") == "\n\n--- @a ---\nx\n--- end @a ---"
+  assert block("a", "x\n") == block("a", "x")
+end

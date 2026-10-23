@@ -1,0 +1,4 @@
+package("kenkou", "0.2.0")
+needs("deeta", "^0.1")
+needs("retsu", "^0.1")
+needs("yushutsu", "^0.2")

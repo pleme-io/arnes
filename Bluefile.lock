@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:e1d7b82552fee1c8bc4b671e55c89a6d43c038147a46966403f3ac15a6d21d66",
+  "manifest": {
+    "schema": 1,
+    "name": "arnes-bidamas",
+    "version": "0.1.0",
+    "needs": {},
+    "when": "anytime",
+    "sources": {},
+    "packages": [
+      "bidamas"
+    ],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": "bidamas/CATALOG.md",
+    "generated": {
+      "kernel-ratchet": {
+        "output": "docs/kernel-ratchet.txt",
+        "program": "gen/kernel-ratchet.b",
+        "inputs": [
+          "Cargo.toml",
+          "kernel-baseline.txt",
+          "arnes",
+          "arnes-anthropic",
+          "arnes-blue",
+          "arnes-config",
+          "arnes-core",
+          "arnes-loop",
+          "arnes-mcp-client",
+          "arnes-store",
+          "arnes-tools",
+          "arnes-tui",
+          "arnes-vigy"
+        ]
+      }
+    }
+  },
+  "sources": {}
+}

@@ -1,0 +1,29 @@
+[package]
+name         = "arnes-vigy"
+description  = "arnes as a vigy host: embeds vigy-runtime on the shared vigy store for host=arnes, gives vigies the MCP facts arnes probes, and runs blue-authored vigy bodies through arnes-blue."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+arnes-blue       = { workspace = true }
+arnes-mcp-client = { workspace = true }
+vigy-runtime     = { workspace = true }
+vigy-eval        = { workspace = true }
+vigy-types       = { workspace = true }
+vigy-store       = { workspace = true }
+tatara-lisp      = { workspace = true }
+tatara-lisp-eval = { workspace = true }
+serde_json       = { workspace = true }
+time             = { version = "0.3" }
+tokio            = { workspace = true }
+tracing          = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

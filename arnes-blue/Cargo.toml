@@ -1,0 +1,25 @@
+[package]
+name         = "arnes-blue"
+description  = "arnes's blue host: runs user-authored blue (.b) slash commands, tools and hooks through blue-lang-runtime's hosted seam, with a typed arnes_* host API declared as one blue-lang-host impl block."
+version      .workspace = true
+edition      .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+arnes-core        = { workspace = true }
+arnes-store       = { workspace = true }
+blue-lang-runtime = { workspace = true }
+blue-lang-host    = { workspace = true }
+blue-lang-pkg     = { workspace = true }
+serde_json        = { workspace = true }
+thiserror         = { workspace = true }
+tokio             = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio    = { workspace = true }
+
+[lints]
+workspace = true

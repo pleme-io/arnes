@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:494e316bf3082df58efcb49464d8f4f1454ca7a3873a97fbfbcac28d8555ac43",
+  "manifest": {
+    "schema": 1,
+    "name": "meirei",
+    "version": "0.2.0",
+    "needs": {
+      "ronri": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}

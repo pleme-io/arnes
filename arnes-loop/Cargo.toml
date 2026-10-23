@@ -1,0 +1,33 @@
+[package]
+name         = "arnes-loop"
+description  = "The agentic conversation loop — send messages, handle tool_use stops, dispatch via MCP, append results, repeat until end_turn."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+arnes-store = { workspace = true }
+guardrail = { workspace = true }
+arnes-tools = { workspace = true }
+arnes-blue = { workspace = true }
+arnes-core       = { workspace = true }
+arnes-anthropic  = { workspace = true }
+arnes-mcp-client = { workspace = true }
+serde_json       = { workspace = true }
+thiserror        = { workspace = true }
+tokio            = { workspace = true }
+tracing          = { workspace = true }
+async-trait      = { workspace = true }
+
+pleme-io-forge-core = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

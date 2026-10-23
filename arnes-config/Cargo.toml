@@ -1,0 +1,34 @@
+[package]
+name         = "arnes-config"
+description  = "Shikumi-loaded config for arnes — tatara-lisp / yaml / nix all load into the same ArnesConfig struct. defarnes TataraDomain."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+arnes-vigy = { workspace = true }
+arnes-store = { workspace = true }
+cofre-secret = { workspace = true }
+arnes-core         = { workspace = true }
+arnes-mcp-client   = { workspace = true }
+arnes-anthropic    = { workspace = true }
+arnes-loop         = { workspace = true }
+arnes-blue         = { workspace = true }
+shikumi            = { workspace = true }
+tatara-lisp        = { workspace = true }
+serde              = { workspace = true }
+serde_json         = { workspace = true }
+serde_yaml         = { workspace = true }
+schemars           = { workspace = true }
+thiserror          = { workspace = true }
+tracing            = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+tempfile          = { workspace = true }
+
+[lints]
+workspace = true

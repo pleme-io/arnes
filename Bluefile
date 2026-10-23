@@ -1,0 +1,31 @@
+# arnes's bidamas, stated in blue. `blue lock .` evaluates this into
+# Bluefile.lock and flake.nix hands it to blue's project engine
+# (`blue.lib.project`), which lowers it: each bidama in bidamas/ built over
+# blue's public distribution, with checks bidama-test-<pkg>,
+# bidama-collisions, bidama-locks-fresh, and the catalogue gate
+# (`nix run .#regen` rewrites it). The Rust binary is substrate's; this file
+# states only the bidamas it hosts (docs/kernel.md).
+package("arnes-bidamas", "0.1.0")
+
+packages("bidamas")
+catalog("bidamas/CATALOG.md")
+generate(
+  "kernel-ratchet",
+  "docs/kernel-ratchet.txt",
+  "gen/kernel-ratchet.b",
+  [
+    "Cargo.toml",
+    "kernel-baseline.txt",
+    "arnes",
+    "arnes-anthropic",
+    "arnes-blue",
+    "arnes-config",
+    "arnes-core",
+    "arnes-loop",
+    "arnes-mcp-client",
+    "arnes-store",
+    "arnes-tools",
+    "arnes-tui",
+    "arnes-vigy"
+  ]
+)

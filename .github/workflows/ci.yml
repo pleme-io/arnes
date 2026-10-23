@@ -1,0 +1,56 @@
+name: ci
+
+# Thin shim onto substrate's reusable cargo-ci.yml — the fleet standard
+# (★ pleme-actions: "a hand-authored composite action inside a workflow is
+# drift"; a consumer is a 5-line shim).
+#
+# REPLACED (2026-08-01): a hand-written `runs-on: macos-15` job — checkout →
+# install nix → nix flake check → nix build '.#default' → cargo fmt --check → cargo test
+# --workspace. It was one of EIGHT byte-for-byte copies of the same template
+# across the org (arnes, promessa, remessa, repo-forge, tansa, zuihitsu,
+# engenho-promessa-controllers, gaveta-client), all carrying the same three
+# defects:
+#
+#  1. NO GIT CREDENTIALS. Any repo here with a private pleme-io git dep dies
+#     in `nix flake check` with "failed to authenticate" / an anonymous 404.
+#     The reusables carry both credential paths (cargo's git AND nix's own
+#     GitHub fetcher — separate mechanisms, both needed).
+#  2. `macos-15` FOR NO REASON. No Package.swift, no .xcodeproj, no
+#     apple-darwin target in this repo — verified, not assumed. macOS minutes
+#     bill at 10x Linux on a private repo, to run a plain Rust build.
+#  3. A HARDCODED PUBLIC RUNNER. The reusable resolves the runner by repo
+#     visibility (private → the organisation self-hosted pool, public → ubuntu-latest), so
+#     a private repo stops burning metered minutes entirely.
+#
+# NOTHING IS DROPPED IN THE MIGRATION, and that took two fixes to substrate
+# rather than one to this file: `cargo fmt --all -- --check` had no equivalent
+# in the reusable (added as `fmt-check`, default true) and neither did
+# `nix build` (added as `build-targets`). A migration that silently buys less
+# than the job it replaces is the trap this cohort was about to walk into --
+# it reads as pure progress in review.
+#
+# Test coverage goes UP: the reusable's default test-args are
+# `--workspace --all-features --no-fail-fast`, where the old job passed a bare
+# `--workspace`.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    uses: pleme-io/substrate/.github/workflows/cargo-ci.yml@main
+    with:
+      # Preserves the explicit `nix build` the old job ran. `nix flake
+      # check` builds `checks.<system>.*` and NOTHING else, so without this
+      # the package itself would stop being compiled by CI.
+      build-targets: ".#default"
+    secrets: inherit

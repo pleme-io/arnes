@@ -1,0 +1,51 @@
+[package]
+name         = "arnes"
+description  = "The arnes agent-harness binary — egaku-term TUI, shikumi config (lisp/yaml/nix), Anthropic client, MCP tool loop. Open-source Claude-Code-equivalent in the pleme-io stack."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[[bin]]
+name = "arnes"
+path = "src/main.rs"
+
+[dependencies]
+futures = { workspace = true }
+chrono = { workspace = true }
+arnes-store = { workspace = true }
+arnes-tools = { workspace = true }
+arnes-core       = { workspace = true }
+arnes-anthropic  = { workspace = true }
+arnes-mcp-client = { workspace = true }
+arnes-loop       = { workspace = true }
+arnes-tui        = { workspace = true }
+arnes-config     = { workspace = true }
+arnes-blue       = { workspace = true }
+arnes-vigy       = { workspace = true }
+vigy-types       = { workspace = true }
+shikumi          = { workspace = true }
+clap             = { workspace = true }
+anyhow           = { workspace = true }
+tokio            = { workspace = true }
+tracing          = { workspace = true }
+tracing-subscriber = { workspace = true }
+egaku-term       = { workspace = true }
+awase            = { workspace = true }
+crossterm        = { workspace = true }
+mimalloc         = { workspace = true }
+escriba-core     = { workspace = true }
+egaku            = { workspace = true }
+escriba-keymap   = { workspace = true }
+ignore           = { workspace = true }
+serde            = { workspace = true }
+serde_json       = { workspace = true }
+async-trait      = { workspace = true }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tempfile = { workspace = true }

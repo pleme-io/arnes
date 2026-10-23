@@ -1,0 +1,7 @@
+package("wariate", "0.1.0")
+needs("chokkan", "^0.1")
+needs("deeta", "^0.1")
+needs("kazu", "^0.1")
+needs("moji", "^0.1")
+needs("retsu", "^0.1")
+needs("yushutsu", "^0.2")

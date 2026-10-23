@@ -1,0 +1,33 @@
+# The kernel's Rust, ratcheted (operator, 2026-10-08: as much blue as possible,
+# as little Rust as possible). gen/kernel-ratchet.b measures each workspace
+# member's non-blank, non-comment lines in src/ before #[cfg(test)], and the
+# host functions arnes-blue registers; a measurement past its row fails the
+# build. Each row sits under the world-fact that keeps it Rust. Raising a row
+# lands with a docs/kernel.md §1 row in the same commit; a row that measures
+# lower is lowered.
+
+# the host functions blue calls: each one a capability a bidama may not grant itself; arnes_http is the one network call, choose-route hooks only
+host: arnes-blue 22
+
+# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts)
+rust: arnes 2883
+# provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches
+rust: arnes-anthropic 646
+# the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships
+rust: arnes-blue 827
+# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section
+rust: arnes-config 1799
+# conversation and usage types the kernel crates share
+rust: arnes-core 318
+# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served
+rust: arnes-loop 598
+# MCP processes and sockets
+rust: arnes-mcp-client 919
+# durable formats and atomic writes
+rust: arnes-store 580
+# the built-in tools: filesystem, subprocess, guardrail
+rust: arnes-tools 408
+# the render engine and the screen law: the per-frame hot path
+rust: arnes-tui 3059
+# the vigy runtime embedding
+rust: arnes-vigy 216

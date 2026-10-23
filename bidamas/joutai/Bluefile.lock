@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:290b936916a7888a52374d0210010dcc98cd7fbef656ab6d4cab7043ec1a64d3",
+  "manifest": {
+    "schema": 1,
+    "name": "joutai",
+    "version": "0.2.0",
+    "needs": {
+      "ronri": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}

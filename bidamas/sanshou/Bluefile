@@ -1,0 +1,4 @@
+package("sanshou", "0.2.0")
+needs("moji", "^0.1")
+needs("retsu", "^0.1")
+needs("yushutsu", "^0.2")

@@ -1,0 +1,28 @@
+[package]
+name         = "arnes-anthropic"
+description  = "Anthropic Messages API client for arnes — reqwest-based, uses arnes-core types, streaming + non-streaming."
+version      .workspace = true
+edition      .workspace = true
+rust-version .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+arnes-store = { workspace = true }
+cofre-secret = { workspace = true }
+handan = { workspace = true }
+arnes-core = { workspace = true }
+reqwest    = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+thiserror  = { workspace = true }
+tokio      = { workspace = true }
+async-trait = { workspace = true }
+tracing    = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true

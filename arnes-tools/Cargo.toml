@@ -1,0 +1,27 @@
+[package]
+name         = "arnes-tools"
+description  = "arnes built-in tools — Read, Write, Edit, Glob, Grep, Bash — shaped like Claude Code's."
+version      .workspace = true
+edition      .workspace = true
+license      .workspace = true
+repository   .workspace = true
+authors      .workspace = true
+
+[dependencies]
+arnes-core = { workspace = true }
+serde_json = { workspace = true }
+thiserror  = { workspace = true }
+tokio      = { workspace = true }
+ignore     = { workspace = true }
+globset    = { workspace = true }
+regex      = { workspace = true }
+egaku      = { workspace = true }
+skill-lint = { workspace = true }
+serde      = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio    = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:8fd34ec236d9fd46a7d0a7dd9dfd0166813728da3e20c112f4a677b842007a0e",
+  "manifest": {
+    "schema": 1,
+    "name": "wariate",
+    "version": "0.1.0",
+    "needs": {
+      "chokkan": "^0.1.0",
+      "deeta": "^0.1.0",
+      "kazu": "^0.1.0",
+      "moji": "^0.1.0",
+      "retsu": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}

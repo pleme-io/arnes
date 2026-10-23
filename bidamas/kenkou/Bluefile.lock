@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:d37e93ac67bb2d9728bf8adf339d6e741275a39c30956a3b18c68f098cfa39de",
+  "manifest": {
+    "schema": 1,
+    "name": "kenkou",
+    "version": "0.2.0",
+    "needs": {
+      "deeta": "^0.1.0",
+      "retsu": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}

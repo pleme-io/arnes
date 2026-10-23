@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:fa71e7511a8d4e7b62e7544ed5c0b42048a3b031a9a777de6cbf3770f3065f1a",
+  "manifest": {
+    "schema": 1,
+    "name": "yushutsu",
+    "version": "0.2.0",
+    "needs": {
+      "moji": "^0.1.0",
+      "retsu": "^0.1.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}

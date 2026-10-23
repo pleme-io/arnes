@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:1c97bfef2bdccb83867780611eef439390cc6f695c8c66f50eb9636b517eade9",
+  "manifest": {
+    "schema": 1,
+    "name": "sanshou",
+    "version": "0.2.0",
+    "needs": {
+      "moji": "^0.1.0",
+      "retsu": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}
