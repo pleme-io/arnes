@@ -292,7 +292,7 @@ def labels(routes)
 end
 
 def route_named(routes, wanted)
-  find((r) -> get(r, :label) == wanted, routes)
+  find(routes, (r) -> get(r, :label) == wanted)
 end
 
 def answered(judged)
