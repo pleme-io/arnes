@@ -68,7 +68,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -79,7 +79,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -200,7 +200,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "shikumi",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "tempfile",
  "thiserror",
  "tracing",
@@ -328,7 +328,7 @@ dependencies = [
  "arnes-blue",
  "arnes-mcp-client",
  "serde_json",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "tatara-lisp-eval",
  "tempfile",
  "time",
@@ -498,7 +498,7 @@ version = "0.0.83"
 source = "git+https://github.com/pleme-io/blue#c24e862d835ad5a7b796d85970c480505c15a459"
 dependencies = [
  "blue-lang-syntax",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
 ]
 
 [[package]]
@@ -507,7 +507,7 @@ version = "0.0.83"
 source = "git+https://github.com/pleme-io/blue#c24e862d835ad5a7b796d85970c480505c15a459"
 dependencies = [
  "blue-lang-syntax",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "thiserror",
 ]
 
@@ -546,7 +546,7 @@ dependencies = [
  "blue-lang-waku",
  "serde",
  "serde_json",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "tatara-lisp-eval",
  "thiserror",
 ]
@@ -558,7 +558,7 @@ source = "git+https://github.com/pleme-io/blue#c24e862d835ad5a7b796d85970c480505
 dependencies = [
  "blue-lang-waku",
  "serde_json",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "tatara-lisp-eval",
 ]
 
@@ -578,7 +578,7 @@ dependencies = [
  "rowan",
  "serde_json",
  "sha2",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "tatara-lisp-eval",
  "thiserror",
 ]
@@ -588,7 +588,7 @@ name = "blue-lang-syntax"
 version = "0.0.83"
 source = "git+https://github.com/pleme-io/blue#c24e862d835ad5a7b796d85970c480505c15a459"
 dependencies = [
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
 ]
 
 [[package]]
@@ -597,7 +597,7 @@ version = "0.0.83"
 source = "git+https://github.com/pleme-io/blue#c24e862d835ad5a7b796d85970c480505c15a459"
 dependencies = [
  "blue-lang-syntax",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
 ]
 
 [[package]]
@@ -1458,9 +1458,9 @@ dependencies = [
 
 [[package]]
 name = "gen-macros"
-version = "0.1.34"
+version = "0.1.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e87d6e8b417dad4ba0d2ed96c58c2cd7af538f592dcf698db0cd8480b08225ed"
+checksum = "45aa54e78709c6e9644351c49be01154ea4e2ec8f52197e06312d594b3fc9b7b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1469,9 +1469,9 @@ dependencies = [
 
 [[package]]
 name = "gen-platform"
-version = "0.1.34"
+version = "0.1.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "340242b11b413b24644f55a9dd7ffd05e371910a738ab52981a03a6ffedf6783"
+checksum = "1bbe0fc580d799cdec0d3e87f0b70eac8958aaf5d5f2051652512aca3ea2c07b"
 dependencies = [
  "gen-macros",
  "gen-types",
@@ -1483,9 +1483,9 @@ dependencies = [
 
 [[package]]
 name = "gen-types"
-version = "0.1.34"
+version = "0.1.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1efa39b439fd999e2f7454c08cb7a4d1f9e6e49ffa805557647f7f998caf7414"
+checksum = "a36de42423d45a3a53484df348c00d9691603252d6630dd3f980e01d560da7eb"
 dependencies = [
  "blake3",
  "chrono",
@@ -2322,7 +2322,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3573,9 +3573,9 @@ checksum = "a5fb3ed7c462ed1f055d1db17434f2ceaffdd4a7dd6d633328cc1493e9423f40"
 
 [[package]]
 name = "shikumi"
-version = "0.1.496"
+version = "0.1.1083"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de145934a9ccb306460220a3cd6068240dea61c139a34846b030bdb3d7b6af41"
+checksum = "253ee1f04558dcc476384a4be719428df4322816ad73c5e2e7731d3808cc5523"
 dependencies = [
  "arc-swap",
  "async-trait",
@@ -3583,6 +3583,7 @@ dependencies = [
  "gen-platform",
  "gen-types",
  "notify",
+ "schemars 1.2.2",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -3673,7 +3674,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3920,7 +3921,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4017,11 +4018,11 @@ dependencies = [
 
 [[package]]
 name = "tatara-closed-set"
-version = "0.4.7"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6f46a7bbe9ca748566a3fad56189d5a3db9c124e8ffc6adca34d42e46db7d35"
+checksum = "b218856bd6451057eebc2abb1e01ca7f80ee2a9a13b87b47e3debfd0a6232bea"
 dependencies = [
- "tatara-closed-set-derive 0.4.7",
+ "tatara-closed-set-derive 0.4.9",
 ]
 
 [[package]]
@@ -4037,9 +4038,9 @@ dependencies = [
 
 [[package]]
 name = "tatara-closed-set-derive"
-version = "0.4.7"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4553fec4477cf6b6605b89d7900f42a1881befee87e39b2747bd0615629d09a0"
+checksum = "64b42b93bbb2b11bb63c159756739b0a98d7c241d40e38e9cf5e633ed6036e06"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4062,15 +4063,15 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp"
-version = "0.4.7"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "134531d1a8e1e49f8e8a081183fb99284bc542ff6008070eed4e33f5c3780933"
+checksum = "05a1714ef7c3da2a0c0a0aa893b8907fff268fb2556dc0bcce414a096a5a9f14"
 dependencies = [
  "blake3",
  "serde",
  "serde_json",
- "tatara-closed-set 0.4.7",
- "tatara-lisp-derive 0.4.7",
+ "tatara-closed-set 0.4.9",
+ "tatara-lisp-derive 0.4.9",
  "thiserror",
 ]
 
@@ -4087,9 +4088,9 @@ dependencies = [
 
 [[package]]
 name = "tatara-lisp-derive"
-version = "0.4.7"
+version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ddc49e00e3cfe029d7624b9c1b31a4d19c449468b8ca2ce2b7ef0278ee0432a"
+checksum = "ee03c93f9f06f62a3e346f0219b0e61ebeac24e59f06a1b2cc77418dd3490e42"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4105,8 +4106,8 @@ dependencies = [
  "imbl",
  "monosashi",
  "stacker",
- "tatara-closed-set 0.4.7",
- "tatara-lisp 0.4.7",
+ "tatara-closed-set 0.4.9",
+ "tatara-lisp 0.4.9",
  "thiserror",
 ]
 
@@ -4653,7 +4654,7 @@ dependencies = [
  "async-trait",
  "serde",
  "serde_json",
- "tatara-lisp 0.4.7",
+ "tatara-lisp 0.4.9",
  "tatara-lisp-eval",
  "thiserror",
  "time",
@@ -4902,7 +4903,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
