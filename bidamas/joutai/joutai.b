@@ -1,14 +1,20 @@
+@moduledoc """
+joutai (状態) — the status line's segments, in blue.
+
+A segment is text the kernel lays out in the status row; the kernel owns
+where it goes and how it is acknowledged, this package owns what it says.
+Every segment after the first is led by the same separator, so the shape is
+one function, `joutai::segment`, and each segment is one line over it.
+
+    profile("") #=> ""
+"""
+
 use("ronri", [:every])
 use("yushutsu", [:column, :render, :rows])
 
-# joutai (状態) — the status line's segments, in blue.
-#
-# A segment is text the kernel lays out in the status row; the kernel owns
-# where it goes and how it is acknowledged, this package owns what it says.
-# Every segment after the first is led by the same separator, so the shape is
-# one function, `joutai::segment`, and each segment is one line over it.
-
-# What arnes hosts from this package, as `yushutsu` rows.
+@doc """
+exports: What arnes hosts from this package, as `yushutsu` rows.
+"""
 def exports()
   render(
     [
@@ -38,12 +44,20 @@ def permission(mode)
   segment("#{mode} mode")
 end
 
-# The activity line at rest: ready, and the route it will use.
+@doc """
+idle: The activity line at rest: ready, and the route it will use.
+
+    idle("local llama.cpp · free") #=> "ready · local llama.cpp · free"
+"""
 def idle(route)
   "ready · #{route}"
 end
 
-# Nothing when no profile is active.
+@doc """
+profile: Nothing when no profile is active.
+
+    profile("") #=> ""
+"""
 def profile(name)
   if name == ""
     ""

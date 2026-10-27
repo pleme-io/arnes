@@ -1,3 +1,9 @@
+@moduledoc """
+wariate (割当) — assignment: the per-turn model-route policy, which route answers the next turn and why.
+
+    rung_index(1, 0.5, 3) #=> 2
+"""
+
 use(
   "chokkan",
   [
@@ -35,8 +41,6 @@ use(
 
 use("retsu", [:first, :is_empty, :last, :size])
 use("yushutsu", [:render, :rows])
-
-# wariate (割当) — assignment: the per-turn model-route policy, which route answers the next turn and why.
 
 def exports()
   render(
@@ -760,7 +764,15 @@ def tail_chars()
 end
 
 def state_of(facts)
-  "Earlier conversation (oldest first, truncated):\n#{keep_tail(get(facts, :tail), tail_chars)}\n\nNewest message:\n#{get(facts, :prompt)}"
+  join_lines(
+    [
+      "Earlier conversation (oldest first, truncated):",
+      keep_tail(get(facts, :tail), tail_chars),
+      "",
+      "Newest message:",
+      get(facts, :prompt)
+    ]
+  )
 end
 
 def judge_request(facts)
@@ -869,7 +881,7 @@ def explain(memory)
       "decisions: #{get(memory, :decisions)}, switches: #{get(memory, :switches)}",
       "abstained: #{abstain_line(get(memory, :abstains))}"
     ],
-    "\n"
+    line_break
   )
 end
 
@@ -999,7 +1011,7 @@ def example_base(routes)
   {
     v: 1,
     prompt: "fix the failing test",
-    tail: "user: hi\nassistant: hello",
+    tail: join_lines(["user: hi", "assistant: hello"]),
     turn: 7,
     last_turn_tool_calls: 0,
     context: {
@@ -1381,7 +1393,16 @@ test "the route question offers exactly the eligible routes, by their descriptio
   bare = put_all(example_route("bare", 1, nil), [[:describe, ""]])
   assert options([bare]) == [["bare", "bare"]]
   assert state_of(f) ==
-    "Earlier conversation (oldest first, truncated):\nuser: hi\nassistant: hello\n\nNewest message:\nfix the failing test"
+    join_lines(
+      [
+        "Earlier conversation (oldest first, truncated):",
+        "user: hi",
+        "assistant: hello",
+        "",
+        "Newest message:",
+        "fix the failing test"
+      ]
+    )
   assert judge_request(f) != nil
   unjudged = example_paid_facts(
     [[:knobs, put_all(example_knobs(true), [[:judge, nil]])]]
@@ -1468,9 +1489,23 @@ test "memory counts decisions, switches and abstains by reason"
   assert get(three, :switches) == 1
   assert get(three, :abstains) == {"no_judgment" => 2}
   assert explain(three) ==
-    "mode: auto\nlast: difficulty 3 of 5: sonnet\ndecisions: 3, switches: 1\nabstained: no_judgment 2"
+    join_lines(
+      [
+        "mode: auto",
+        "last: difficulty 3 of 5: sonnet",
+        "decisions: 3, switches: 1",
+        "abstained: no_judgment 2"
+      ]
+    )
   assert explain(memory_of(nil)) ==
-    "mode: auto\nlast: no decision yet\ndecisions: 0, switches: 0\nabstained: none"
+    join_lines(
+      [
+        "mode: auto",
+        "last: no decision yet",
+        "decisions: 0, switches: 0",
+        "abstained: none"
+      ]
+    )
 end
 
 test "recall lays the stored memory over the kernel's echo, field by field"
@@ -1501,7 +1536,14 @@ test "/route sets only the mode, and why shows the last decision"
   shown = command_of("why", stored)
   assert get(shown, :write).nil?
   assert get(shown, :panel) ==
-    "mode: auto\nlast: difficulty 3 of 5: sonnet\ndecisions: 1, switches: 1\nabstained: none"
+    join_lines(
+      [
+        "mode: auto",
+        "last: difficulty 3 of 5: sonnet",
+        "decisions: 1, switches: 1",
+        "abstained: none"
+      ]
+    )
   assert get(command_of("bogus", stored), :hint) ==
     "route policy auto: /route auto | pin | off | why"
 end

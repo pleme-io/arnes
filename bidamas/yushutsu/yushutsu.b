@@ -1,31 +1,45 @@
+@moduledoc """
+yushutsu (輸出) — export: how a hosted bidama tells arnes what it serves.
+
+arnes asks each hosted bidama for `exports()`, one line per entry.
+The line is fields separated by one space: `command <name> <function>
+<description>`, `segment <name> <function> <description>`, `bind <action>
+<chord>`. Every arnes bidama writes its exports as rows of fields through
+`yushutsu::render`, and reads them back in its tests through
+`yushutsu::rows`, so the line shape lives in one place.
+
+    line([]) #=> ""
+"""
+
 use("moji", [:lines, :words])
 use("retsu", [:first])
 
-# yushutsu (輸出) — export: how a hosted bidama tells arnes what it serves.
-#
-# arnes asks each hosted bidama for `exports()`, one line per entry.
-# The line is fields separated by one space: `command <name> <function>
-# <description>`, `segment <name> <function> <description>`, `bind <action>
-# <chord>`. Every arnes bidama writes its exports as rows of fields through
-# `yushutsu::render`, and reads them back in its tests through
-# `yushutsu::rows`, so the line shape lives in one place.
+@doc """
+line: One export line from its fields.
 
-# One export line from its fields.
+    line([]) #=> ""
+"""
 def line(fields)
   join(fields, " ")
 end
 
-# The exports text from rows of fields.
+@doc """
+render: The exports text from rows of fields.
+"""
 def render(rows)
-  join(map(line, rows), "\n")
+  join(map(line, rows), line_break)
 end
 
-# The rows of an exports text, each line split into its words.
+@doc """
+rows: The rows of an exports text, each line split into its words.
+"""
 def rows(text)
   map((l) -> words(l), lines(text))
 end
 
-# The field at `i` of every row.
+@doc """
+column: The field at `i` of every row.
+"""
 def column(rs, i)
   map((r) -> nth(i, r), rs)
 end

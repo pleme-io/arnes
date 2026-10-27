@@ -1,14 +1,18 @@
+@moduledoc """
+kenkou (健康) — health: arnes's MCP health vigy, in blue.
+
+arnes's health scheduler probes each MCP server on an adaptive schedule
+(docs/profiles.md) and passes the newest facts as a JSON array of
+{server, up, latency_ms, tools, error}; `kenkou::tick` turns them into the
+tick's one-line result, stored in the shared vigy store and shown by /vigy.
+A tick only reads the facts, so kenkou is hosted by default.
+
+    segment("[]") #=> ""
+"""
+
 use("deeta", [:get_int, :get_str])
 use("retsu", [:first])
 use("yushutsu", [:render, :rows])
-
-# kenkou (健康) — health: arnes's MCP health vigy, in blue.
-#
-# arnes's health scheduler probes each MCP server on an adaptive schedule
-# (docs/profiles.md) and passes the newest facts as a JSON array of
-# {server, up, latency_ms, tools, error}; `kenkou::tick` turns them into the
-# tick's one-line result, stored in the shared vigy store and shown by /vigy.
-# A tick only reads the facts, so kenkou is hosted by default.
 
 def exports()
   render(
@@ -28,7 +32,11 @@ def line(p)
   end
 end
 
-# The status segment: `mcp <up>/<all>`, nothing before the first probe.
+@doc """
+segment: The status segment: `mcp <up>/<all>`, nothing before the first probe.
+
+    segment("[]") #=> ""
+"""
 def segment(facts)
   ps = json_parse(facts)
   if length(ps) == 0

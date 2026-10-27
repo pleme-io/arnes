@@ -1,20 +1,22 @@
+@moduledoc """
+meirei (命令) — arnes's built-in slash commands, in blue.
+
+Each command is `meirei::<name>(args)`: it receives the text typed after
+`/name` and returns a string for the status hint, or nil. What it does to
+arnes goes through the host API (`arnes_*`), whose calls are effects the
+kernel applies after the call succeeds. The kernel resolves `/name` to this
+package by name, so a bidama called `meirei` earlier on arnes's path replaces
+the whole set, and a user command called `name` replaces one.
+
+`exports()` is what arnes reads to host this package, written as rows
+through `yushutsu`. The kernel refuses a bad row alone and hosts the rest.
+
+Host calls exist only inside arnes, so the commands are tested by
+arnes-blue; the exports are tested here.
+"""
+
 use("ronri", [:every])
 use("yushutsu", [:column, :render, :rows])
-
-# meirei (命令) — arnes's built-in slash commands, in blue.
-#
-# Each command is `meirei::<name>(args)`: it receives the text typed after
-# `/name` and returns a string for the status hint, or nil. What it does to
-# arnes goes through the host API (`arnes_*`), whose calls are effects the
-# kernel applies after the call succeeds. The kernel resolves `/name` to this
-# package by name, so a bidama called `meirei` earlier on arnes's path replaces
-# the whole set, and a user command called `name` replaces one.
-#
-# `exports()` is what arnes reads to host this package, written as rows
-# through `yushutsu`. The kernel refuses a bad row alone and hosts the rest.
-#
-# Host calls exist only inside arnes, so the commands are tested by
-# arnes-blue; the exports are tested here.
 
 def exports()
   render(
@@ -73,6 +75,9 @@ def clear(_args)
 end
 
 # waive B0001: arnes host call
+@doc """
+exit: Send pid an exit signal: it ends with reason unless it traps exits (:normal ends nothing, :kill cannot be trapped). exit(self, r) raises.
+"""
 def exit(_args)
   arnes_exit()
   nil
@@ -128,8 +133,10 @@ def model(args)
   nil
 end
 
-# /profile opens the profile picker; /profile <name> switches (- for none).
 # waive B0001: arnes host call
+@doc """
+profile: /profile opens the profile picker; /profile <name> switches (- for none).
+"""
 def profile(args)
   if args == ""
     arnes_pick("profile")

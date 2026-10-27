@@ -1,16 +1,18 @@
+@moduledoc """
+kenban (鍵盤) — arnes's default key bindings, in blue.
+
+One `bind <action> <chord>` line per binding, read by the kernel as this
+package's exports: the action is an arnes action id (`app:interrupt`,
+`chat:submit`), the chord one or two keys (`ctrl+x ctrl+e`). They are
+Claude Code's defaults. A bidama called `kenban` earlier on arnes's path
+replaces the whole keymap; `keys.prompt` in the config edits it (bind,
+unbind) on top, entry by entry.
+"""
+
 use("moji", [:includes])
 use("retsu", [:first])
 use("ronri", [:every])
 use("yushutsu", [:column, :render, :rows])
-
-# kenban (鍵盤) — arnes's default key bindings, in blue.
-#
-# One `bind <action> <chord>` line per binding, read by the kernel as this
-# package's exports: the action is an arnes action id (`app:interrupt`,
-# `chat:submit`), the chord one or two keys (`ctrl+x ctrl+e`). They are
-# Claude Code's defaults. A bidama called `kenban` earlier on arnes's path
-# replaces the whole keymap; `keys.prompt` in the config edits it (bind,
-# unbind) on top, entry by entry.
 
 def exports()
   render(
