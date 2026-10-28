@@ -71,7 +71,11 @@ def advise(rows, kind, ms)
   map(
     fn(m)
       write_stderr(
-        "kernel-ratchet: #{kind} #{get(m, :key)} measures below its row; lower it in kernel-baseline.txt\n"
+        unlines(
+          [
+            "kernel-ratchet: #{kind} #{get(m, :key)} measures below its row; lower it in kernel-baseline.txt"
+          ]
+        )
       )
     end,
     shrunk(rows, kind, ms)
@@ -79,7 +83,11 @@ def advise(rows, kind, ms)
   map(
     fn(k)
       write_stderr(
-        "kernel-ratchet: #{kind} #{k} has a row and nothing to measure; drop the row\n"
+        unlines(
+          [
+            "kernel-ratchet: #{kind} #{k} has a row and nothing to measure; drop the row"
+          ]
+        )
       )
     end,
     orphans(rows, kind, map((m) -> get(m, :key), ms))
