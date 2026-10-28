@@ -19,7 +19,7 @@ def members()
     )
   )
   map(
-    (ix) -> nth(1, ix),
+    (ix) -> ix[1],
     filter((ix) -> first(ix) % 2 == 1, enumerate(split(decl, "\"")))
   )
 end
@@ -73,7 +73,7 @@ def advise(rows, kind, ms)
       write_stderr(
         unlines(
           [
-            "kernel-ratchet: #{kind} #{get(m, :key)} measures below its row; lower it in kernel-baseline.txt"
+            "kernel-ratchet: #{kind} #{m[:key]} measures below its row; lower it in kernel-baseline.txt"
           ]
         )
       )
@@ -90,7 +90,7 @@ def advise(rows, kind, ms)
         )
       )
     end,
-    orphans(rows, kind, map((m) -> get(m, :key), ms))
+    orphans(rows, kind, map((m) -> m[:key], ms))
   )
 end
 
