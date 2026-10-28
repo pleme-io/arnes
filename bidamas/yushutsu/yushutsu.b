@@ -41,7 +41,7 @@ end
 column: The field at `i` of every row.
 """
 def column(rs, i)
-  map((r) -> nth(i, r), rs)
+  map((r) -> r[i], rs)
 end
 
 test "a line is its fields joined by one space"

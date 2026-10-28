@@ -157,7 +157,7 @@ def routes_of(v)
 end
 
 def admit(acc, r)
-  if r.nil? or member?(get(r, :label), labels(acc))
+  if r.nil? or member?(r[:label], labels(acc))
     acc
   else
     append(acc, [r])
@@ -292,15 +292,15 @@ def keep_set(acc, k, v)
 end
 
 def labels(routes)
-  map((r) -> get(r, :label), routes)
+  map((r) -> r[:label], routes)
 end
 
 def route_named(routes, wanted)
-  find(routes, (r) -> get(r, :label) == wanted)
+  find(routes, (r) -> r[:label] == wanted)
 end
 
 def answered(judged)
-  map?(judged) and get(judged, :kind) == :answered
+  map?(judged) and judged[:kind] == :answered
 end
 
 def tools_need(judged)
@@ -346,45 +346,45 @@ def cooling_verdicts()
 end
 
 def cooling(knobs, r)
-  member?(get(r, :verdict), cooling_verdicts) and
-    get(r, :age_ms) < get(knobs, :cooldown_secs) * 1000
+  member?(r[:verdict], cooling_verdicts) and
+    r[:age_ms] < knobs[:cooldown_secs] * 1000
 end
 
 def lacks_tools(need, r)
-  not get(r, :tools) and not (need != nil and need < 0.2)
+  not r[:tools] and not (need != nil and need < 0.2)
 end
 
 def demand(facts)
-  c = get(facts, :context)
-  get(c, :last_prompt_tokens) +
-    get(c, :last_output_tokens) +
-    get(c, :prompt_chars) / 3 +
-    get(c, :max_tokens)
+  c = facts[:context]
+  c[:last_prompt_tokens] +
+    c[:last_output_tokens] +
+    c[:prompt_chars] / 3 +
+    c[:max_tokens]
 end
 
 def fits(facts, r)
-  w = get(r, :context_window)
+  w = r[:context_window]
   w.nil? or demand(facts) <= 0.9 * w
 end
 
 def paid_out(facts, r)
-  get(r, :paid) and
-    not get(get(facts, :knobs), :allow_paid) and
-    get(r, :label) != get(facts, :configured_primary)
+  r[:paid] and
+    not facts[:knobs][:allow_paid] and
+    r[:label] != facts[:configured_primary]
 end
 
 def drops_thinking(facts, r)
-  get(r, :switch_drops_thinking) and
-    get(r, :echo) == "when-tools" and
-    get(facts, :last_turn_tool_calls) > 0 and
-    get(r, :label) != get(facts, :current)
+  r[:switch_drops_thinking] and
+    r[:echo] == "when-tools" and
+    facts[:last_turn_tool_calls] > 0 and
+    r[:label] != facts[:current]
 end
 
 def objections(facts, need, r)
   [
-    [not get(r, :usable), "not usable"],
-    [get(r, :verdict) == "unauthorized", "unauthorized"],
-    [cooling(get(facts, :knobs), r), "cooling down after #{get(r, :verdict)}"],
+    [not r[:usable], "not usable"],
+    [r[:verdict] == "unauthorized", "unauthorized"],
+    [cooling(facts[:knobs], r), "cooling down after #{r[:verdict]}"],
     [lacks_tools(need, r), "no tools"],
     [not fits(facts, r), "the context does not fit"],
     [paid_out(facts, r), "paid"],
@@ -402,7 +402,7 @@ def objection(facts, need, r)
 end
 
 def eligible_with(facts, need)
-  filter((r) -> objection(facts, need, r).nil?, get(facts, :routes))
+  filter((r) -> objection(facts, need, r).nil?, facts[:routes])
 end
 
 def eligible(facts, judged)
@@ -414,7 +414,7 @@ def askable(facts)
 end
 
 def tier(r)
-  t = get(r, :tier)
+  t = r[:tier]
   if t.nil?
     -1
   else
@@ -423,10 +423,10 @@ def tier(r)
 end
 
 def cost(r)
-  if not get(r, :paid)
+  if not r[:paid]
     -1.0
   else
-    price = get(r, :price_out)
+    price = r[:price_out]
     if price.nil?
       1000000000.0
     else
@@ -491,14 +491,14 @@ def moved(current, wanted)
 end
 
 def abstain(m, key, why)
-  counts = get(m, :abstains)
+  counts = m[:abstains]
   {
     route: nil,
     why:,
     memory: put_all(
       m,
       [
-        [:since_switch, bump(get(m, :since_switch))],
+        [:since_switch, bump(m[:since_switch])],
         [:abstains, assoc(counts, key, tally(counts, key))],
         [:last_why, why]
       ]
@@ -515,7 +515,7 @@ def move_to(m, current, wanted, why)
       [
         [:since_switch, 0],
         [:last_choice, wanted],
-        [:switches, get(m, :switches) + moved(current, wanted)],
+        [:switches, m[:switches] + moved(current, wanted)],
         [:last_why, why]
       ]
     )
@@ -524,7 +524,7 @@ end
 
 def decide(facts, judged, memory)
   base = complete(memory)
-  m = assoc(base, :decisions, get(base, :decisions) + 1)
+  m = assoc(base, :decisions, base[:decisions] + 1)
   assoc(
     steer(facts, judged, m, eligible(facts, judged)),
     :judged,
@@ -533,7 +533,7 @@ def decide(facts, judged, memory)
 end
 
 def steer(facts, judged, m, e)
-  wanted = get(m, :forced)
+  wanted = m[:forced]
   if wanted.nil?
     by_mode(facts, judged, m, e)
   else
@@ -542,11 +542,11 @@ def steer(facts, judged, m, e)
 end
 
 def forced(facts, judged, m, e, wanted)
-  r = route_named(get(facts, :routes), wanted)
+  r = route_named(facts[:routes], wanted)
   if r.nil?
     abstain(m, "forced", "@#{wanted} is not a configured route")
   elsif member?(wanted, labels(e))
-    move_to(m, get(facts, :current), wanted, "you asked for #{wanted}")
+    move_to(m, facts[:current], wanted, "you asked for #{wanted}")
   else
     abstain(
       m,
@@ -557,7 +557,7 @@ def forced(facts, judged, m, e, wanted)
 end
 
 def by_mode(facts, judged, m, e)
-  mode = get(m, :mode)
+  mode = m[:mode]
   if mode == "off"
     abstain(m, "off", "the route policy is off")
   elsif mode == "pin"
@@ -568,16 +568,15 @@ def by_mode(facts, judged, m, e)
 end
 
 def by_source(facts, judged, m, e)
-  current = get(facts, :current)
-  if get(m, :adopt)
+  current = facts[:current]
+  if m[:adopt]
     settle(
       facts,
       judged,
       put_all(m, [[:adopt, false], [:last_choice, current]]),
       e
     )
-  elsif get(facts, :current_source) == "manual" and
-      current != get(m, :last_choice)
+  elsif facts[:current_source] == "manual" and current != m[:last_choice]
     abstain(assoc(m, :mode, "pin"), "manual", "you chose the route")
   else
     settle(facts, judged, m, e)
@@ -587,7 +586,7 @@ end
 def settle(facts, judged, m, e)
   if is_empty(e)
     abstain(m, "empty", "no route is eligible: stay")
-  elsif not member?(get(facts, :current), labels(e))
+  elsif not member?(facts[:current], labels(e))
     lift(facts, judged, m, e)
   elsif answered(judged) and difficulty(judged) != nil
     weigh(facts, judged, m, e)
@@ -605,14 +604,14 @@ def ineligibility(facts, judged, here)
 end
 
 def lift(facts, judged, m, e)
-  current = get(facts, :current)
-  here = route_named(get(facts, :routes), current)
+  current = facts[:current]
+  here = route_named(facts[:routes], current)
   least = if here.nil?
     -1
   else
     tier(here)
   end
-  target = get(nearest_up(strength(e), least), :label)
+  target = nearest_up(strength(e), least)[:label]
   move_to(
     m,
     current,
@@ -626,10 +625,10 @@ def weigh(facts, judged, m, e)
   ranked = strength(e)
   ts = distinct(map(tier, ranked))
   at = rung_index(d, noul_of(judged, "sensitive"), size(ts))
-  cand = first(filter((r) -> tier(r) == nth(at, ts), ranked))
+  cand = first(filter((r) -> tier(r) == ts[at], ranked))
   pick = judges_pick(facts, judged, ranked, ts, at, cand)
-  wanted = get(pick, :label)
-  why = if wanted == get(cand, :label)
+  wanted = pick[:label]
+  why = if wanted == cand[:label]
     "difficulty #{one_place(d)} of 5: #{wanted}"
   else
     "the judge picked #{wanted} (difficulty #{one_place(d)} of 5)"
@@ -642,7 +641,7 @@ def judges_pick(facts, judged, ranked, ts, at, cand)
   c = confidence(judged, "route")
   if r != nil and
       c != nil and
-      c * 100 >= get(get(facts, :knobs), :min_confidence) and
+      c * 100 >= facts[:knobs][:min_confidence] and
       abs(position(tier(r), ts) - at) <= 1
     r
   else
@@ -651,25 +650,25 @@ def judges_pick(facts, judged, ranked, ts, at, cand)
 end
 
 def sticky(m, knobs)
-  n = get(m, :since_switch)
-  n != nil and n < get(knobs, :stick_turns)
+  n = m[:since_switch]
+  n != nil and n < knobs[:stick_turns]
 end
 
 def hard_upgrade(judged, knobs, up)
   up and
     difficulty(judged) >= 4 and
-    level_confidence(judged) * 100 >= get(knobs, :min_confidence) + 15
+    level_confidence(judged) * 100 >= knobs[:min_confidence] + 15
 end
 
 def gate(facts, judged, m, e, pick, why)
-  current = get(facts, :current)
-  knobs = get(facts, :knobs)
+  current = facts[:current]
+  knobs = facts[:knobs]
   d = difficulty(judged)
   c = noul_of(judged, "continues")
   s = noul_of(judged, "sensitive")
   here = tier(route_named(e, current))
   up = tier(pick) > here
-  wanted = get(pick, :label)
+  wanted = pick[:label]
   if tier(pick) < here and (c >= 0.5 or s >= 0.5)
     abstain(m, "no_downgrade", "no downgrade mid-task")
   elsif up and c >= 0.5 and d < 3.5
@@ -678,7 +677,7 @@ def gate(facts, judged, m, e, pick, why)
     abstain(
       m,
       "sticky",
-      "sticky: #{get(m, :since_switch)} of #{get(knobs, :stick_turns)} turns since the last switch"
+      "sticky: #{m[:since_switch]} of #{knobs[:stick_turns]} turns since the last switch"
     )
   elsif wanted == current
     abstain(m, "stay", "#{current} already fits (difficulty #{one_place(d)})")
@@ -700,7 +699,7 @@ def summary(judged)
         difficulty_confidence: confidence(judged, "difficulty")
       }
     else
-      {kind: to_s(get(judged, :kind)), why: get(judged, :why)}
+      {kind: to_s(judged[:kind]), why: judged[:why]}
     end
   end
 end
@@ -716,15 +715,15 @@ def difficulty_levels()
 end
 
 def description(r)
-  if is_blank(get(r, :describe))
-    get(r, :label)
+  if is_blank(r[:describe])
+    r[:label]
   else
-    get(r, :describe)
+    r[:describe]
   end
 end
 
 def options(routes)
-  map((r) -> [get(r, :label), description(r)], routes)
+  map((r) -> [r[:label], description(r)], routes)
 end
 
 def questions(_facts, routes)
@@ -767,17 +766,17 @@ def state_of(facts)
   join_lines(
     [
       "Earlier conversation (oldest first, truncated):",
-      keep_tail(get(facts, :tail), tail_chars),
+      keep_tail(facts[:tail], tail_chars),
       "",
       "Newest message:",
-      get(facts, :prompt)
+      facts[:prompt]
     ]
   )
 end
 
 def judge_request(facts)
   qs = questions(facts, askable(facts))
-  if get(get(facts, :knobs), :judge).nil? or qs.nil?
+  if facts[:knobs][:judge].nil? or qs.nil?
     nil
   else
     request("judge-latest", state_of(facts), qs) rescue nil
@@ -796,10 +795,10 @@ end
 def answer(decision)
   json_stringify(
     {
-      route: get(decision, :route),
-      why: get(decision, :why),
-      judged: get(decision, :judged),
-      memory: get(decision, :memory)
+      route: decision[:route],
+      why: decision[:why],
+      judged: decision[:judged],
+      memory: decision[:memory]
     }
   )
 end
@@ -869,17 +868,17 @@ def abstain_line(counts)
 end
 
 def explain(memory)
-  last_why = if is_blank(get(memory, :last_why))
+  last_why = if is_blank(memory[:last_why])
     "no decision yet"
   else
-    get(memory, :last_why)
+    memory[:last_why]
   end
   join(
     [
-      "mode: #{get(memory, :mode)}",
+      "mode: #{memory[:mode]}",
       "last: #{last_why}",
-      "decisions: #{get(memory, :decisions)}, switches: #{get(memory, :switches)}",
-      "abstained: #{abstain_line(get(memory, :abstains))}"
+      "decisions: #{memory[:decisions]}, switches: #{memory[:switches]}",
+      "abstained: #{abstain_line(memory[:abstains])}"
     ],
     line_break
   )
@@ -912,7 +911,7 @@ def command_of(args, stored)
     {
       write: nil,
       panel: nil,
-      hint: "route policy #{get(overlay(memory_of(nil), doc), :mode)}: /route auto | pin | off | why"
+      hint: "route policy #{overlay(memory_of(nil), doc)[:mode]}: /route auto | pin | off | why"
     }
   end
 end
@@ -923,16 +922,16 @@ def choose(facts_json)
   if facts.nil?
     nil
   else
-    memory = recall(arnes_store_get("memory"), get(facts, :memory))
+    memory = recall(arnes_store_get("memory"), facts[:memory])
     asked = judge_request(facts)
     reply = if asked.nil?
       nil
     else
-      arnes_http(get(get(facts, :knobs), :judge), asked) rescue nil
+      arnes_http(facts[:knobs][:judge], asked) rescue nil
     end
     d = decide(facts, judgment(reply), memory)
-    arnes_store_set("memory", json_stringify(get(d, :memory)))
-    arnes_store_set("labels", join(labels(get(facts, :routes)), " "))
+    arnes_store_set("memory", json_stringify(d[:memory]))
+    arnes_store_set("labels", join(labels(facts[:routes]), " "))
     answer(d)
   end
 end
@@ -951,13 +950,13 @@ end
 # waive B0001: arnes host call
 def route(args)
   c = command_of(args, arnes_store_get("memory"))
-  if get(c, :write) != nil
-    arnes_store_set("memory", get(c, :write))
+  if c[:write] != nil
+    arnes_store_set("memory", c[:write])
   end
-  if get(c, :panel) != nil
-    arnes_panel("route", get(c, :panel))
+  if c[:panel] != nil
+    arnes_panel("route", c[:panel])
   end
-  get(c, :hint)
+  c[:hint]
 end
 
 def example_route(label, rank, window)
@@ -1095,13 +1094,13 @@ test "an empty pool, unreadable facts and an empty object all abstain"
   assert facts_of("[1, 2]").nil?
   assert facts_of(nil).nil?
   blank_facts = facts_of("{}")
-  assert get(blank_facts, :routes) == []
-  assert get(blank_facts, :current_source) == "auto"
-  assert get(decide(blank_facts, nil, nil), :route).nil?
+  assert blank_facts[:routes] == []
+  assert blank_facts[:current_source] == "auto"
+  assert decide(blank_facts, nil, nil)[:route].nil?
   f = example_facts([], [])
   d = decide(f, nil, {})
-  assert get(d, :route).nil?
-  assert get(d, :why) == "no route is eligible: stay"
+  assert d[:route].nil?
+  assert d[:why] == "no route is eligible: stay"
   assert eligible(f, nil) == []
   assert questions(f, eligible(f, nil)).nil?
 end
@@ -1111,10 +1110,10 @@ test "a single eligible current route abstains, judged or not"
   assert labels(eligible(f, nil)) == ["gpubox"]
   assert questions(f, eligible(f, nil)).nil?
   assert judge_request(f).nil?
-  assert get(decide(f, nil, {}), :route).nil?
+  assert decide(f, nil, {})[:route].nil?
   hard = example_level(5, 0.0, 0.0)
-  assert get(decide(f, hard, {}), :route).nil?
-  assert get(decide(f, hard, {}), :why) == "gpubox already fits (difficulty 5)"
+  assert decide(f, hard, {})[:route].nil?
+  assert decide(f, hard, {})[:why] == "gpubox already fits (difficulty 5)"
 end
 
 test "the context fits within 0.9 of the window, counting a third of the prompt's characters"
@@ -1169,19 +1168,18 @@ test "context overflow moves the floor to the nearest route at least as strong"
     example_route("big", 1, 1_000_000)
   ]
   d = decide(example_facts(pool, example_overflow), nil, {})
-  assert get(d, :route) == "big"
-  assert get(d, :why) ==
+  assert d[:route] == "big"
+  assert d[:why] ==
     "the floor moves off an ineligible route: gpubox (the context does not fit) to big"
-  assert get(get(d, :memory), :last_choice) == "big"
-  assert get(get(d, :memory), :since_switch) == 0
-  assert get(get(d, :memory), :switches) == 1
+  assert d[:memory][:last_choice] == "big"
+  assert d[:memory][:since_switch] == 0
+  assert d[:memory][:switches] == 1
   top = [
     example_route("tiny", 0, 1_000_000),
     example_route("gpubox", 2, 32768),
     example_route("big", 1, 1_000_000)
   ]
-  assert get(decide(example_facts(top, example_overflow), nil, {}), :route) ==
-    "big"
+  assert decide(example_facts(top, example_overflow), nil, {})[:route] == "big"
 end
 
 test "the floor never picks a no-tools route, and a judged light task may"
@@ -1192,11 +1190,11 @@ test "the floor never picks a no-tools route, and a judged light task may"
   )
   assert eligible(f, nil) == []
   assert labels(askable(f)) == ["phone"]
-  assert get(decide(f, nil, {}), :route).nil?
+  assert decide(f, nil, {})[:route].nil?
   light = example_judgment(1, 0.0, 0.0, 0.1, nil, 0, 0.9)
-  assert get(decide(f, light, {}), :route) == "phone"
+  assert decide(f, light, {})[:route] == "phone"
   tooled = example_judgment(1, 0.0, 0.0, 0.5, nil, 0, 0.9)
-  assert get(decide(f, tooled, {}), :route).nil?
+  assert decide(f, tooled, {})[:route].nil?
 end
 
 test "unauthorized is never eligible, and a failing route sits out its cooldown"
@@ -1231,54 +1229,51 @@ test "a manual choice pins the route, and /route auto adopts it"
   f = example_paid_facts([[:current, "sonnet"], [:current_source, "manual"]])
   light = example_level(1, 0.0, 0.0)
   d = decide(f, light, {last_choice: "gpubox"})
-  assert get(d, :route).nil?
-  assert get(d, :why) == "you chose the route"
-  assert get(get(d, :memory), :mode) == "pin"
-  again = decide(f, light, get(d, :memory))
-  assert get(again, :why) == "the route is pinned"
-  stored = json_stringify(get(again, :memory))
-  auto = overlay(
-    get(again, :memory),
-    object_of(get(command_of("auto", stored), :write))
-  )
+  assert d[:route].nil?
+  assert d[:why] == "you chose the route"
+  assert d[:memory][:mode] == "pin"
+  again = decide(f, light, d[:memory])
+  assert again[:why] == "the route is pinned"
+  stored = json_stringify(again[:memory])
+  auto = overlay(again[:memory], object_of(command_of("auto", stored)[:write]))
   resumed = decide(f, light, auto)
-  assert get(resumed, :route) == "gpubox"
-  assert get(get(resumed, :memory), :adopt) == false
-  assert get(get(resumed, :memory), :mode) == "auto"
-  assert get(decide(f, light, {last_choice: "sonnet"}), :route) == "gpubox"
+  assert resumed[:route] == "gpubox"
+  assert resumed[:memory][:adopt] == false
+  assert resumed[:memory][:mode] == "auto"
+  assert decide(f, light, {last_choice: "sonnet"})[:route] == "gpubox"
 end
 
 test "stickiness holds for stick_turns, and only a confident hard upgrade breaks it"
   f = example_paid_facts([])
   middling = example_level(3, 0.0, 0.0)
   held = decide(f, middling, {since_switch: 1})
-  assert get(held, :route).nil?
-  assert get(held, :why) == "sticky: 1 of 3 turns since the last switch"
-  assert get(get(held, :memory), :since_switch) == 2
-  assert get(decide(f, middling, {since_switch: 3}), :route) == "sonnet"
-  assert get(decide(f, middling, {}), :route) == "sonnet"
+  assert held[:route].nil?
+  assert held[:why] == "sticky: 1 of 3 turns since the last switch"
+  assert held[:memory][:since_switch] == 2
+  assert decide(f, middling, {since_switch: 3})[:route] == "sonnet"
+  assert decide(f, middling, {})[:route] == "sonnet"
   hard = (level, conf) -> example_judgment(level, 0.0, 0.0, 0.9, nil, 0, conf)
-  assert get(decide(f, hard(5, 0.9), {since_switch: 1}), :route) == "opus"
-  assert get(decide(f, hard(4, 0.9), {since_switch: 0}), :route) == "opus"
-  assert get(decide(f, hard(5, 0.8), {since_switch: 1}), :route).nil?
+  assert decide(f, hard(5, 0.9), {since_switch: 1})[:route] == "opus"
+  assert decide(f, hard(4, 0.9), {since_switch: 0})[:route] == "opus"
+  assert decide(f, hard(5, 0.8), {since_switch: 1})[:route].nil?
   down = example_paid_facts([[:current, "opus"]])
-  assert get(decide(down, hard(1, 0.99), {since_switch: 1}), :route).nil?
+  assert decide(down, hard(1, 0.99), {since_switch: 1})[:route].nil?
 end
 
 test "a forced route is honoured once, and an ineligible one is named and dropped"
   f = example_paid_facts([])
   d = decide(f, nil, {forced: "opus"})
-  assert get(d, :route) == "opus"
-  assert get(d, :why) == "you asked for opus"
-  assert get(get(d, :memory), :forced).nil?
-  assert get(get(d, :memory), :last_choice) == "opus"
-  assert get(decide(f, nil, get(d, :memory)), :route).nil?
-  assert get(decide(f, nil, {forced: "opus", mode: "pin"}), :route) == "opus"
+  assert d[:route] == "opus"
+  assert d[:why] == "you asked for opus"
+  assert d[:memory][:forced].nil?
+  assert d[:memory][:last_choice] == "opus"
+  assert decide(f, nil, d[:memory])[:route].nil?
+  assert decide(f, nil, {forced: "opus", mode: "pin"})[:route] == "opus"
   refused = decide(example_facts(example_pool, []), nil, {forced: "opus"})
-  assert get(refused, :route).nil?
-  assert get(refused, :why) == "@opus is not eligible: paid"
-  assert get(get(refused, :memory), :forced).nil?
-  assert get(decide(f, nil, {forced: "nope"}), :why) ==
+  assert refused[:route].nil?
+  assert refused[:why] == "@opus is not eligible: paid"
+  assert refused[:memory][:forced].nil?
+  assert decide(f, nil, {forced: "nope"})[:why] ==
     "@nope is not a configured route"
 end
 
@@ -1304,50 +1299,50 @@ test "control: a blind or refused judgment decides exactly as no judge"
   m = {since_switch: 5}
   none = decide(f, nil, m)
   shifted = decide(f, example_level(3, 0.0, 0.0), m)
-  same = (d) -> [get(d, :route), get(d, :why), get(d, :memory)]
-  assert get(none, :route).nil?
-  assert get(shifted, :route) == "sonnet"
+  same = (d) -> [d[:route], d[:why], d[:memory]]
+  assert none[:route].nil?
+  assert shifted[:route] == "sonnet"
   assert same(decide(f, read(503, ""), m)) == same(none)
   assert same(decide(f, read(400, "{}"), m)) == same(none)
   assert same(decide(f, read(200, "{}"), m)) == same(none)
-  assert get(get(decide(f, read(503, ""), m), :judged), :kind) == "blind"
+  assert decide(f, read(503, ""), m)[:judged][:kind] == "blind"
   assert same(shifted) != same(none)
 end
 
 test "a low-confidence route choice falls back to the difficulty's candidate"
   f = example_paid_facts([])
   pick = (conf) -> example_judgment(3, 0.0, 0.0, 0.9, "opus", conf, 0.9)
-  assert get(decide(f, pick(0.5), {}), :route) == "sonnet"
-  assert get(decide(f, pick(0.69), {}), :route) == "sonnet"
-  assert get(decide(f, pick(0.9), {}), :route) == "opus"
-  assert get(decide(f, pick(0.9), {}), :why) ==
+  assert decide(f, pick(0.5), {})[:route] == "sonnet"
+  assert decide(f, pick(0.69), {})[:route] == "sonnet"
+  assert decide(f, pick(0.9), {})[:route] == "opus"
+  assert decide(f, pick(0.9), {})[:why] ==
     "the judge picked opus (difficulty 3 of 5)"
 end
 
 test "continues blocks a downgrade mid-task, and so does a sensitive task"
   f = example_paid_facts([[:current, "opus"]])
-  assert get(decide(f, example_level(1, 0.8, 0.0), {}), :why) ==
+  assert decide(f, example_level(1, 0.8, 0.0), {})[:why] ==
     "no downgrade mid-task"
-  assert get(decide(f, example_level(1, 0.5, 0.0), {}), :route).nil?
-  assert get(decide(f, example_level(1, 0.1, 0.1), {}), :route) == "gpubox"
+  assert decide(f, example_level(1, 0.5, 0.0), {})[:route].nil?
+  assert decide(f, example_level(1, 0.1, 0.1), {})[:route] == "gpubox"
   guarded = example_judgment(1, 0.0, 0.6, 0.9, "sonnet", 0.9, 0.9)
-  assert get(decide(f, guarded, {}), :why) == "no downgrade mid-task"
+  assert decide(f, guarded, {})[:why] == "no downgrade mid-task"
 end
 
 test "a continuation keeps its cache unless the task turned hard"
   f = example_paid_facts([])
-  assert get(decide(f, example_level(3, 0.8, 0.0), {}), :why) ==
+  assert decide(f, example_level(3, 0.8, 0.0), {})[:why] ==
     "continuation, cache kept"
-  assert get(decide(f, example_level(4, 0.8, 0.0), {}), :route) == "opus"
-  assert get(decide(f, example_level(3, 0.2, 0.0), {}), :route) == "sonnet"
+  assert decide(f, example_level(4, 0.8, 0.0), {})[:route] == "opus"
+  assert decide(f, example_level(3, 0.2, 0.0), {})[:route] == "sonnet"
 end
 
 test "a judge more than one tier from the difficulty's candidate is overruled"
   f = example_paid_facts([[:current, "opus"]])
   far = example_judgment(1, 0.0, 0.0, 0.9, "opus", 0.95, 0.9)
   near = example_judgment(1, 0.0, 0.0, 0.9, "sonnet", 0.95, 0.9)
-  assert get(decide(f, far, {}), :route) == "gpubox"
-  assert get(decide(f, near, {}), :route) == "sonnet"
+  assert decide(f, far, {})[:route] == "gpubox"
+  assert decide(f, near, {})[:route] == "sonnet"
 end
 
 test "a tools need of 0.2 or more keeps the on-device route out"
@@ -1368,23 +1363,23 @@ test "a tools need of 0.2 or more keeps the on-device route out"
   )
   tooled = (t) -> example_judgment(1, 0.0, 0.0, t, nil, 0, 0.9)
   assert labels(eligible(f, tooled(0.2))) == ["gpubox"]
-  assert get(decide(f, tooled(0.2), {}), :route).nil?
+  assert decide(f, tooled(0.2), {})[:route].nil?
   assert labels(eligible(f, tooled(0.19))) == ["phone", "gpubox"]
-  assert get(decide(f, tooled(0.19), {}), :route) == "phone"
+  assert decide(f, tooled(0.19), {})[:route] == "phone"
 end
 
 test "the route question offers exactly the eligible routes, by their descriptions"
   f = example_paid_facts([])
   e = eligible(f, nil)
   qs = questions(f, e)
-  options_of = get(last(first(qs)), :options)
+  options_of = last(first(qs))[:options]
   assert map((q) -> first(q), qs) ==
     ["route", "continues", "tools", "sensitive", "difficulty"]
   assert size(e) == 3
   assert size(options_of) == size(e)
   assert map((o) -> first(o), options_of) == ["gpubox", "sonnet", "opus"]
   assert last(first(options_of)) == "gpubox, a capable model"
-  assert size(get(last(last(qs)), :levels)) == 5
+  assert size(last(last(qs))[:levels]) == 5
   sent = json_parse(request("judge-latest", state_of(f), qs))
   assert size(
     json_get(json_get(json_get(sent, "questions"), "route"), "criteria")
@@ -1415,9 +1410,9 @@ test "an answer round-trips through json_parse, memory and all"
   d = decide(f, example_level(3, 0.0, 0.0), {decisions: 2})
   doc = json_parse(answer(d))
   assert json_get(doc, "route") == "sonnet"
-  assert json_get(doc, "why") == get(d, :why)
-  assert memory_of(json_get(doc, "memory")) == get(d, :memory)
-  assert get(get(d, :memory), :decisions) == 3
+  assert json_get(doc, "why") == d[:why]
+  assert memory_of(json_get(doc, "memory")) == d[:memory]
+  assert d[:memory][:decisions] == 3
   assert json_get(json_get(doc, "judged"), "difficulty") == 3.0
   kept = json_parse(answer(decide(f, nil, {})))
   assert json_get(kept, "route").nil?
@@ -1442,8 +1437,7 @@ test "strength puts an untiered route below every tier, then free, cheap, dear, 
     r("g", nil, true, nil)
   ]
   f = example_facts(pool, [[:knobs, example_knobs(true)]])
-  assert labels(strength(get(f, :routes))) ==
-    ["b", "d", "a", "g", "c", "f", "e"]
+  assert labels(strength(f[:routes])) == ["b", "d", "a", "g", "c", "f", "e"]
 end
 
 test "difficulty maps onto the eligible tiers by rounding halves up, and sensitivity takes the top"
@@ -1482,12 +1476,12 @@ end
 
 test "memory counts decisions, switches and abstains by reason"
   f = example_paid_facts([])
-  one = get(decide(f, nil, {}), :memory)
-  two = get(decide(f, nil, one), :memory)
-  three = get(decide(f, example_level(3, 0.0, 0.0), two), :memory)
-  assert get(three, :decisions) == 3
-  assert get(three, :switches) == 1
-  assert get(three, :abstains) == {"no_judgment" => 2}
+  one = decide(f, nil, {})[:memory]
+  two = decide(f, nil, one)[:memory]
+  three = decide(f, example_level(3, 0.0, 0.0), two)[:memory]
+  assert three[:decisions] == 3
+  assert three[:switches] == 1
+  assert three[:abstains] == {"no_judgment" => 2}
   assert explain(three) ==
     join_lines(
       [
@@ -1522,20 +1516,16 @@ test "recall lays the stored memory over the kernel's echo, field by field"
 end
 
 test "/route sets only the mode, and why shows the last decision"
-  m = get(
-    decide(example_paid_facts([]), example_level(3, 0.0, 0.0), {}),
-    :memory
-  )
+  m = decide(example_paid_facts([]), example_level(3, 0.0, 0.0), {})[:memory]
   stored = json_stringify(m)
   pinned = command_of("pin", stored)
-  assert overlay(m, object_of(get(pinned, :write))) ==
-    put_all(m, [[:mode, "pin"]])
-  assert get(pinned, :hint) == "route pinned: the current route stays"
-  assert fields_of(object_of(get(command_of("off", nil), :write))) ==
+  assert overlay(m, object_of(pinned[:write])) == put_all(m, [[:mode, "pin"]])
+  assert pinned[:hint] == "route pinned: the current route stays"
+  assert fields_of(object_of(command_of("off", nil)[:write])) ==
     ["adopt", "mode"]
   shown = command_of("why", stored)
-  assert get(shown, :write).nil?
-  assert get(shown, :panel) ==
+  assert shown[:write].nil?
+  assert shown[:panel] ==
     join_lines(
       [
         "mode: auto",
@@ -1544,7 +1534,7 @@ test "/route sets only the mode, and why shows the last decision"
         "abstained: none"
       ]
     )
-  assert get(command_of("bogus", stored), :hint) ==
+  assert command_of("bogus", stored)[:hint] ==
     "route policy auto: /route auto | pin | off | why"
 end
 
@@ -1554,14 +1544,14 @@ test "a judge reply is read through chokkan, and a transport failure is blind"
     judgment("{\"status\":0,\"verdict\":\"unreachable\",\"ms\":3,\"body\":\"\"}"),
     :kind
   ) == :blind
-  assert get(judgment("garbage"), :kind) == :blind
+  assert judgment("garbage")[:kind] == :blind
   body = json_stringify(
     {model: "judge-1", answers: {tools: {type: "noul", noul: 0.1}}}
   )
   ok = judgment(
     json_stringify({status: 200, verdict: "success", ms: 120, body:})
   )
-  assert get(ok, :kind) == :answered
+  assert ok[:kind] == :answered
   assert tools_need(ok) == 0.1
 end
 

@@ -92,14 +92,14 @@ there is none (the prompt goes as typed).
 def expand(prompt)
   max = to_int(arnes_state("mention-max-bytes"))
   found = filter(
-    (pt) -> nth(1, pt) != nil,
+    (pt) -> pt[1] != nil,
     map((p) -> [p, arnes_read_file(p, max)], paths(prompt))
   )
   if length(found) == 0
     nil
   else
     arnes_hint("attached #{length(found)} file(s)")
-    reduce((acc, pt) -> "#{acc}#{block(first(pt), nth(1, pt))}", prompt, found)
+    reduce((acc, pt) -> "#{acc}#{block(first(pt), pt[1])}", prompt, found)
   end
 end
 
