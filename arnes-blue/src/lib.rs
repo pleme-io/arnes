@@ -877,13 +877,7 @@ pub mod bidamas {
         /// `before` the embedded distribution, `after` it.
         #[must_use]
         pub fn new(before: Vec<PathBuf>, after: blue_lang_pkg::load_path::LoadPath) -> Self {
-            let joined: Vec<String> = before.iter().map(|r| r.to_string_lossy().into_owned()).collect();
-            let before = blue_lang_pkg::load_path::Environment::from_vars(
-                std::ffi::OsStr::new(&joined.join(":")),
-                std::ffi::OsStr::new(""),
-            )
-            .load_path(None);
-            Self { before, after }
+            Self { before: blue_lang_pkg::load_path::Environment::from_vars(std::ffi::OsStr::new(&before.iter().map(|r| r.to_string_lossy()).collect::<Vec<_>>().join(":")), std::ffi::OsStr::new("")).load_path(None), after }
         }
     }
 
