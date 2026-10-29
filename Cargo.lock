@@ -68,7 +68,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -79,7 +79,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -487,7 +487,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-bidama"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-waku",
 ]
@@ -495,7 +495,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-check"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-syntax",
  "tatara-lisp 0.4.9",
@@ -504,7 +504,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-fmt"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-syntax",
  "tatara-lisp 0.4.9",
@@ -514,7 +514,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-host"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-host-macros",
  "blue-lang-pkg",
@@ -528,7 +528,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-host-macros"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -538,7 +538,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-mondou"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blake3",
  "blue-lang-check",
@@ -553,7 +553,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-pkg"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-bidama",
  "blue-lang-check",
@@ -572,7 +572,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-proc"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-waku",
  "serde_json",
@@ -583,7 +583,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-runtime"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blake3",
  "blue-lang-check",
@@ -607,7 +607,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-syntax"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "tatara-lisp 0.4.9",
 ]
@@ -615,7 +615,7 @@ dependencies = [
 [[package]]
 name = "blue-lang-waku"
 version = "0.0.125"
-source = "git+https://github.com/pleme-io/blue#04d57c9d00b45a08d7879309813e5412f3ae1fe8"
+source = "git+https://github.com/pleme-io/blue#dfd6d905792b0fc12aab7821870e8b6c609ef016"
 dependencies = [
  "blue-lang-syntax",
  "tatara-lisp 0.4.9",
@@ -2343,7 +2343,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3704,7 +3704,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -3951,7 +3951,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
