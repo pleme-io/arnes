@@ -11,7 +11,7 @@ The line is fields separated by one space: `command <name> <function>
     line([]) #=> ""
 """
 
-use("moji", [:lines, :words])
+use("moji", %i[lines words])
 use("retsu", [:first])
 
 @doc """
@@ -45,13 +45,13 @@ def column(rs, i)
 end
 
 test "a line is its fields joined by one space"
-  assert line(["command", "x", "x", "does", "x"]) == "command x x does x"
+  assert line(%w[command x x does x]) == "command x x does x"
   assert line([]) == ""
 end
 
 test "rows round-trip through the text"
-  rs = [["segment", "a", "a"], ["bind", "app:exit", "ctrl+d"]]
+  rs = [%w[segment a a], %w[bind app:exit ctrl+d]]
   assert rows(render(rs)) == rs
-  assert column(rs, 1) == ["a", "app:exit"]
+  assert column(rs, 1) == %w[a app:exit]
   assert render(rs) != render([first(rs)])
 end

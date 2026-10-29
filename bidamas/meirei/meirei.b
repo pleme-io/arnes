@@ -16,7 +16,7 @@ arnes-blue; the exports are tested here.
 """
 
 use("ronri", [:every])
-use("yushutsu", [:column, :render, :rows])
+use("yushutsu", %i[column render rows])
 
 def exports()
   render(
@@ -50,19 +50,7 @@ test "the exports are command rows, each naming its own meirei function"
   rs = rows(exports)
   names = column(rs, 1)
   assert names ==
-    [
-      "clear",
-      "exit",
-      "help",
-      "mcp",
-      "mode",
-      "model",
-      "notices",
-      "profile",
-      "resume",
-      "vigy",
-      "vim"
-    ]
+    %w[clear exit help mcp mode model notices profile resume vigy vim]
   assert every((k) -> k == "command", column(rs, 0))
   assert column(rs, 2) == names
   assert names != []

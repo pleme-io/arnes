@@ -6,41 +6,33 @@ wariate (割当) — assignment: the per-turn model-route policy, which route an
 
 use(
   "chokkan",
-  [
-    :ask,
-    :choice,
-    :chosen,
-    :confidence,
-    :expected_level,
-    :keep_tail,
-    :noul,
-    :probabilities,
-    :probability,
-    :read,
-    :request,
-    :score,
-    :score_of
+  %i[
+    ask
+    choice
+    chosen
+    confidence
+    expected_level
+    keep_tail
+    noul
+    probabilities
+    probability
+    read
+    request
+    score
+    score_of
   ]
 )
 
-use("deeta", [:as_json, :get_int, :get_number, :get_str, :is_doc])
-use("kazu", [:abs, :clamp, :max])
+use("deeta", %i[as_json get_int get_number get_str is_doc])
+use("kazu", %i[abs clamp max])
 
 use(
   "moji",
-  [
-    :ascii_digits,
-    :ascii_letters,
-    :drop_chars,
-    :is_blank,
-    :made_of,
-    :trim,
-    :words
-  ]
+  %i[ascii_digits ascii_letters drop_chars is_blank made_of trim words]
 )
 
-use("retsu", [:first, :is_empty, :last, :size])
-use("yushutsu", [:render, :rows])
+use("retsu", %i[first is_empty last size])
+use("yushutsu", %i[render rows])
 
 def exports()
   render(
@@ -202,16 +194,16 @@ def window_of(v)
 end
 
 def memory_keys()
-  [
-    :mode,
-    :forced,
-    :last_choice,
-    :since_switch,
-    :adopt,
-    :decisions,
-    :switches,
-    :abstains,
-    :last_why
+  %i[
+    mode
+    forced
+    last_choice
+    since_switch
+    adopt
+    decisions
+    switches
+    abstains
+    last_why
   ]
 end
 
@@ -230,7 +222,7 @@ def memory_of(m)
 end
 
 def mode_of(s)
-  if member?(s, ["auto", "pin", "off"])
+  if member?(s, %w[auto pin off])
     s
   else
     "auto"
@@ -342,7 +334,7 @@ def difficulty(judged)
 end
 
 def cooling_verdicts()
-  ["throttled", "server-error", "unreachable", "timed-out"]
+  %w[throttled server-error unreachable timed-out]
 end
 
 def cooling(knobs, r)
@@ -844,17 +836,17 @@ def forcing(stored, wanted)
 end
 
 def reasons()
-  [
-    "off",
-    "pin",
-    "forced",
-    "manual",
-    "empty",
-    "no_judgment",
-    "no_downgrade",
-    "continuation",
-    "sticky",
-    "stay"
+  %w[
+    off
+    pin
+    forced
+    manual
+    empty
+    no_judgment
+    no_downgrade
+    continuation
+    sticky
+    stay
   ]
 end
 
@@ -897,7 +889,7 @@ end
 def command_of(args, stored)
   word = trim(to_s(args))
   doc = object_of(stored)
-  if member?(word, ["auto", "pin", "off"])
+  if member?(word, %w[auto pin off])
     {
       write: json_stringify(
         put_all(overlay({}, doc), [[:mode, word], [:adopt, word == "auto"]])
@@ -1217,10 +1209,10 @@ test "with allow_paid off only the configured primary may be paid"
   assert labels(eligible(example_facts(pool, []), nil)) == ["gpubox"]
   assert labels(
     eligible(example_facts(pool, [[:configured_primary, "sonnet"]]), nil)
-  ) == ["gpubox", "sonnet"]
+  ) == %w[gpubox sonnet]
   assert labels(
     eligible(example_facts(pool, [[:knobs, example_knobs(true)]]), nil)
-  ) == ["gpubox", "sonnet"]
+  ) == %w[gpubox sonnet]
   unpriced = put_all(example_route("x", 1, nil), [[:paid, nil]])
   assert labels(eligible(example_facts([unpriced], []), nil)) == []
 end
@@ -1278,16 +1270,16 @@ test "a forced route is honoured once, and an ineligible one is named and droppe
 end
 
 test "a directive is @label and a space, and a known label once labels are known"
-  assert directive_of("@opus explain this", ["gpubox", "opus"]) ==
+  assert directive_of("@opus explain this", %w[gpubox opus]) ==
     ["opus", "explain this"]
-  assert directive_of("@opus   explain", ["opus"]) == ["opus", "explain"]
-  assert directive_of("@nope explain", ["gpubox", "opus"]).nil?
+  assert directive_of("@opus   explain", ["opus"]) == %w[opus explain]
+  assert directive_of("@nope explain", %w[gpubox opus]).nil?
   assert directive_of("@src/main.rs explain", nil).nil?
-  assert directive_of("@gpubox explain", nil) == ["gpubox", "explain"]
+  assert directive_of("@gpubox explain", nil) == %w[gpubox explain]
   assert directive_of("@opus", ["opus"]).nil?
   assert directive_of("ask @opus now", ["opus"]).nil?
   assert directive_of("@ opus", nil).nil?
-  assert known_labels("gpubox opus") == ["gpubox", "opus"]
+  assert known_labels("gpubox opus") == %w[gpubox opus]
   stored = forcing(nil, "opus")
   assert fields_of(json_parse(stored)) == ["forced"]
   assert memory_of(json_parse(stored)) ==
@@ -1364,7 +1356,7 @@ test "a tools need of 0.2 or more keeps the on-device route out"
   tooled = (t) -> example_judgment(1, 0.0, 0.0, t, nil, 0, 0.9)
   assert labels(eligible(f, tooled(0.2))) == ["gpubox"]
   assert decide(f, tooled(0.2), {})[:route].nil?
-  assert labels(eligible(f, tooled(0.19))) == ["phone", "gpubox"]
+  assert labels(eligible(f, tooled(0.19))) == %w[phone gpubox]
   assert decide(f, tooled(0.19), {})[:route] == "phone"
 end
 
@@ -1374,10 +1366,10 @@ test "the route question offers exactly the eligible routes, by their descriptio
   qs = questions(f, e)
   options_of = last(first(qs))[:options]
   assert map((q) -> first(q), qs) ==
-    ["route", "continues", "tools", "sensitive", "difficulty"]
+    %w[route continues tools sensitive difficulty]
   assert size(e) == 3
   assert size(options_of) == size(e)
-  assert map((o) -> first(o), options_of) == ["gpubox", "sonnet", "opus"]
+  assert map((o) -> first(o), options_of) == %w[gpubox sonnet opus]
   assert last(first(options_of)) == "gpubox, a capable model"
   assert size(last(last(qs))[:levels]) == 5
   sent = json_parse(request("judge-latest", state_of(f), qs))
@@ -1386,7 +1378,7 @@ test "the route question offers exactly the eligible routes, by their descriptio
   ) == 3
   assert questions(f, [first(e)]).nil?
   bare = put_all(example_route("bare", 1, nil), [[:describe, ""]])
-  assert options([bare]) == [["bare", "bare"]]
+  assert options([bare]) == [%w[bare bare]]
   assert state_of(f) ==
     join_lines(
       [
@@ -1437,7 +1429,7 @@ test "strength puts an untiered route below every tier, then free, cheap, dear, 
     r("g", nil, true, nil)
   ]
   f = example_facts(pool, [[:knobs, example_knobs(true)]])
-  assert labels(strength(f[:routes])) == ["b", "d", "a", "g", "c", "f", "e"]
+  assert labels(strength(f[:routes])) == %w[b d a g c f e]
 end
 
 test "difficulty maps onto the eligible tiers by rounding halves up, and sensitivity takes the top"
@@ -1461,13 +1453,13 @@ test "a switch that would drop thinking mid-tool-run is excluded, staying put is
   ) == ["gpubox"]
   assert labels(
     eligible(example_facts(pool, [[:last_turn_tool_calls, 0]]), nil)
-  ) == ["gpubox", "think"]
+  ) == %w[gpubox think]
   assert labels(
     eligible(
       example_facts(pool, [[:last_turn_tool_calls, 5], [:current, "think"]]),
       nil
     )
-  ) == ["gpubox", "think"]
+  ) == %w[gpubox think]
   quiet = put_all(think, [[:echo, "never"]])
   assert labels(
     eligible(example_facts([quiet], [[:last_turn_tool_calls, 5]]), nil)
@@ -1521,8 +1513,7 @@ test "/route sets only the mode, and why shows the last decision"
   pinned = command_of("pin", stored)
   assert overlay(m, object_of(pinned[:write])) == put_all(m, [[:mode, "pin"]])
   assert pinned[:hint] == "route pinned: the current route stays"
-  assert fields_of(object_of(command_of("off", nil)[:write])) ==
-    ["adopt", "mode"]
+  assert fields_of(object_of(command_of("off", nil)[:write])) == %w[adopt mode]
   shown = command_of("why", stored)
   assert shown[:write].nil?
   assert shown[:panel] ==
@@ -1558,8 +1549,8 @@ end
 test "the exports are the choose-route hook, the @label directive and /route"
   assert map((r) -> take(3, r), rows(exports)) ==
     [
-      ["hook", "choose-route", "choose"],
-      ["hook", "before-submit", "directive"],
-      ["command", "route", "route"]
+      %w[hook choose-route choose],
+      %w[hook before-submit directive],
+      %w[command route route]
     ]
 end

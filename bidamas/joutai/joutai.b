@@ -10,7 +10,7 @@ one function, `joutai::segment`, and each segment is one line over it.
 """
 
 use("ronri", [:every])
-use("yushutsu", [:column, :render, :rows])
+use("yushutsu", %i[column render rows])
 
 @doc """
 exports: What arnes hosts from this package, as `yushutsu` rows.
@@ -89,10 +89,8 @@ end
 
 test "the exports are segment rows, each naming a joutai function"
   rs = rows(exports)
-  assert column(rs, 1) ==
-    ["model", "effort", "tools", "permission-mode", "idle", "profile"]
-  assert column(rs, 2) ==
-    ["model", "effort", "tools", "permission", "idle", "profile"]
+  assert column(rs, 1) == %w[model effort tools permission-mode idle profile]
+  assert column(rs, 2) == %w[model effort tools permission idle profile]
   assert every((k) -> k == "segment", column(rs, 0))
 end
 

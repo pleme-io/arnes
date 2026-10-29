@@ -1,7 +1,7 @@
-use("hadome", [:failures, :measurement, :orphans, :parse, :render, :shrunk])
-use("kyohi", [:enforce, :refusal])
-use("moji", [:ends_with, :includes, :lines, :starts_with, :trim])
-use("retsu", [:drop_while, :enumerate, :first, :size, :take_while])
+use("hadome", %i[failures measurement orphans parse render shrunk])
+use("kyohi", %i[enforce refusal])
+use("moji", %i[ends_with includes lines starts_with trim])
+use("retsu", %i[drop_while enumerate first size take_while])
 
 def root()
   getenv("GEN_ROOT", ".")

@@ -10,14 +10,14 @@ A tick only reads the facts, so kenkou is hosted by default.
     segment("[]") #=> ""
 """
 
-use("deeta", [:get_int, :get_str])
+use("deeta", %i[get_int get_str])
 use("retsu", [:first])
-use("yushutsu", [:render, :rows])
+use("yushutsu", %i[render rows])
 
 def exports()
   render(
     [
-      ["vigy", "mcp-health", "tick", "30000"],
+      %w[vigy mcp-health tick 30000],
       ["segment", "mcp", "segment", "how many MCP servers are up"]
     ]
   )
@@ -64,7 +64,7 @@ test "no servers, and a mixed pair"
 end
 
 test "the export is one vigy row"
-  assert first(rows(exports)) == ["vigy", "mcp-health", "tick", "30000"]
+  assert first(rows(exports)) == %w[vigy mcp-health tick 30000]
   assert segment("[]") == ""
   assert segment("[{\"up\":true},{\"up\":false}]") == "mcp 1/2"
 end

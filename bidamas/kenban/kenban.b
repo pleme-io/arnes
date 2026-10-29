@@ -12,56 +12,56 @@ unbind) on top, entry by entry.
 use("moji", [:includes])
 use("retsu", [:first])
 use("ronri", [:every])
-use("yushutsu", [:column, :render, :rows])
+use("yushutsu", %i[column render rows])
 
 def exports()
   render(
     [
-      ["bind", "app:interrupt", "ctrl+c"],
-      ["bind", "app:exit", "ctrl+d"],
-      ["bind", "chat:cancel", "escape"],
-      ["bind", "app:redraw", "ctrl+l"],
-      ["bind", "app:toggleTranscript", "ctrl+o"],
-      ["bind", "chat:thinkingToggle", "alt+t"],
-      ["bind", "app:cycleMode", "shift+tab"],
-      ["bind", "app:scrollback", "pageup"],
-      ["bind", "app:scrollback", "shift+up"],
-      ["bind", "chat:submit", "enter"],
-      ["bind", "chat:newline", "shift+enter"],
-      ["bind", "chat:newline", "alt+enter"],
-      ["bind", "chat:newline", "ctrl+j"],
-      ["bind", "chat:externalEditor", "ctrl+g"],
-      ["bind", "chat:externalEditor", "ctrl+x", "ctrl+e"],
-      ["bind", "chat:stash", "ctrl+s"],
-      ["bind", "history:previous", "up"],
-      ["bind", "history:previous", "ctrl+p"],
-      ["bind", "history:next", "down"],
-      ["bind", "history:next", "ctrl+n"],
-      ["bind", "history:search", "ctrl+r"],
-      ["bind", "edit:left", "left"],
-      ["bind", "edit:left", "ctrl+b"],
-      ["bind", "edit:right", "right"],
-      ["bind", "edit:right", "ctrl+f"],
-      ["bind", "edit:wordLeft", "alt+b"],
-      ["bind", "edit:wordLeft", "alt+left"],
-      ["bind", "edit:wordRight", "alt+f"],
-      ["bind", "edit:wordRight", "alt+right"],
-      ["bind", "edit:lineStart", "ctrl+a"],
-      ["bind", "edit:lineStart", "home"],
-      ["bind", "edit:lineEnd", "ctrl+e"],
-      ["bind", "edit:lineEnd", "end"],
-      ["bind", "edit:deleteBack", "backspace"],
-      ["bind", "edit:deleteBack", "ctrl+h"],
-      ["bind", "edit:deleteForward", "delete"],
-      ["bind", "edit:killToEnd", "ctrl+k"],
-      ["bind", "edit:killToStart", "ctrl+u"],
-      ["bind", "edit:killWordBack", "ctrl+w"],
-      ["bind", "edit:killWordBack", "alt+backspace"],
-      ["bind", "edit:killWordForward", "alt+d"],
-      ["bind", "edit:yank", "ctrl+y"],
-      ["bind", "edit:yankPop", "alt+y"],
-      ["bind", "edit:undo", "ctrl+_"],
-      ["bind", "edit:undo", "ctrl+7"]
+      %w[bind app:interrupt ctrl+c],
+      %w[bind app:exit ctrl+d],
+      %w[bind chat:cancel escape],
+      %w[bind app:redraw ctrl+l],
+      %w[bind app:toggleTranscript ctrl+o],
+      %w[bind chat:thinkingToggle alt+t],
+      %w[bind app:cycleMode shift+tab],
+      %w[bind app:scrollback pageup],
+      %w[bind app:scrollback shift+up],
+      %w[bind chat:submit enter],
+      %w[bind chat:newline shift+enter],
+      %w[bind chat:newline alt+enter],
+      %w[bind chat:newline ctrl+j],
+      %w[bind chat:externalEditor ctrl+g],
+      %w[bind chat:externalEditor ctrl+x ctrl+e],
+      %w[bind chat:stash ctrl+s],
+      %w[bind history:previous up],
+      %w[bind history:previous ctrl+p],
+      %w[bind history:next down],
+      %w[bind history:next ctrl+n],
+      %w[bind history:search ctrl+r],
+      %w[bind edit:left left],
+      %w[bind edit:left ctrl+b],
+      %w[bind edit:right right],
+      %w[bind edit:right ctrl+f],
+      %w[bind edit:wordLeft alt+b],
+      %w[bind edit:wordLeft alt+left],
+      %w[bind edit:wordRight alt+f],
+      %w[bind edit:wordRight alt+right],
+      %w[bind edit:lineStart ctrl+a],
+      %w[bind edit:lineStart home],
+      %w[bind edit:lineEnd ctrl+e],
+      %w[bind edit:lineEnd end],
+      %w[bind edit:deleteBack backspace],
+      %w[bind edit:deleteBack ctrl+h],
+      %w[bind edit:deleteForward delete],
+      %w[bind edit:killToEnd ctrl+k],
+      %w[bind edit:killToStart ctrl+u],
+      %w[bind edit:killWordBack ctrl+w],
+      %w[bind edit:killWordBack alt+backspace],
+      %w[bind edit:killWordForward alt+d],
+      %w[bind edit:yank ctrl+y],
+      %w[bind edit:yankPop alt+y],
+      %w[bind edit:undo ctrl+_],
+      %w[bind edit:undo ctrl+7]
     ]
   )
 end
@@ -71,5 +71,5 @@ test "every binding is a bind row with an action id and a chord"
   assert length(rs) == 45
   assert every((k) -> k == "bind", column(rs, 0))
   assert every((a) -> includes(a, ":"), column(rs, 1))
-  assert first(rs) == ["bind", "app:interrupt", "ctrl+c"]
+  assert first(rs) == %w[bind app:interrupt ctrl+c]
 end

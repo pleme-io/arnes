@@ -13,18 +13,10 @@ bidama has.
 
 use(
   "moji",
-  [
-    :drop_chars,
-    :ends_with,
-    :includes,
-    :present,
-    :starts_with,
-    :take_chars,
-    :words
-  ]
+  %i[drop_chars ends_with includes present starts_with take_chars words]
 )
 
-use("retsu", [:contains, :first, :push])
+use("retsu", %i[contains first push])
 use("yushutsu", [:render])
 
 def exports()
@@ -104,7 +96,7 @@ def expand(prompt)
 end
 
 test "mention paths drop trailing punctuation and repeat once"
-  assert paths("see @a.rs, and @b/c.md). @a.rs again @") == ["a.rs", "b/c.md"]
+  assert paths("see @a.rs, and @b/c.md). @a.rs again @") == %w[a.rs b/c.md]
   assert paths("no mentions") == []
   assert path("x@y") == ""
 end
