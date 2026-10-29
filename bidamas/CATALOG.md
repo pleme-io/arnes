@@ -20,13 +20,13 @@ joutai (状態) — the status line's segments, in blue.
 
 | definition | other name | shares a builtin's name | waived | what it does |
 |---|---|---|---|---|
-| `joutai::exports` |  |  |  | What arnes hosts from this package, as `yushutsu` rows. |
+| `joutai::exports` |  |  |  | exports: What arnes hosts from this package, as `yushutsu` rows. |
 | `joutai::segment(text)` |  |  |  |  |
 | `joutai::model(m)` |  |  |  |  |
 | `joutai::effort(e)` |  |  |  |  |
 | `joutai::permission(mode)` |  |  |  |  |
-| `joutai::idle(route)` |  |  |  | The activity line at rest: ready, and the route it will use. |
-| `joutai::profile(name)` |  |  |  | Nothing when no profile is active. |
+| `joutai::idle(route)` |  |  |  | idle: The activity line at rest: ready, and the route it will use. |
+| `joutai::profile(name)` |  |  |  | profile: Nothing when no profile is active. |
 | `joutai::tools(count)` |  |  |  |  |
 
 ## kenban
@@ -49,7 +49,7 @@ kenkou (健康) — health: arnes's MCP health vigy, in blue.
 |---|---|---|---|---|
 | `kenkou::exports` |  |  |  |  |
 | `kenkou::line(p)` |  |  |  |  |
-| `kenkou::segment(facts)` |  |  |  | The status segment: `mcp <up>/<all>`, nothing before the first probe. |
+| `kenkou::segment(facts)` |  |  |  | segment: The status segment: `mcp <up>/<all>`, nothing before the first probe. |
 | `kenkou::tick(facts)` |  |  |  |  |
 
 ## meirei
@@ -62,14 +62,14 @@ meirei (命令) — arnes's built-in slash commands, in blue.
 |---|---|---|---|---|
 | `meirei::exports` |  |  |  |  |
 | `meirei::clear(_args)` |  |  | `B0001` |  |
-| `meirei::exit(_args)` |  | yes | `B0001` |  |
+| `meirei::exit(_args)` |  | yes | `B0001` | exit: Send pid an exit signal: it ends with reason unless it traps exits (:normal ends nothing, :kill cannot be trapped). exit(self, r) raises. |
 | `meirei::help(_args)` |  |  | `B0001` |  |
 | `meirei::mode(args)` |  |  | `B0001` |  |
 | `meirei::notices(_args)` |  |  | `B0001` |  |
 | `meirei::vim(_args)` |  |  | `B0001` |  |
 | `meirei::resume(args)` |  |  | `B0001` |  |
 | `meirei::model(args)` |  |  | `B0001` |  |
-| `meirei::profile(args)` |  |  | `B0001` | /profile opens the profile picker; /profile <name> switches (- for none). |
+| `meirei::profile(args)` |  |  | `B0001` | profile: /profile opens the profile picker; /profile <name> switches (- for none). |
 | `meirei::mcp(args)` |  |  | `B0001` |  |
 | `meirei::vigy(args)` |  |  | `B0001` |  |
 
@@ -82,13 +82,13 @@ sanshou (参照) — reference: `@path` mentions in a prompt, attached.
 | definition | other name | shares a builtin's name | waived | what it does |
 |---|---|---|---|---|
 | `sanshou::exports` |  |  |  |  |
-| `sanshou::path(token)` |  |  |  | A mention token's path: the text after `@`, trailing punctuation dropped. |
+| `sanshou::path(token)` |  |  |  | path: A mention token's path: the text after `@`, trailing punctuation dropped. |
 | `sanshou::trim_end(p)` |  |  |  |  |
-| `sanshou::paths(prompt)` |  |  |  | The paths mentioned in `prompt`, in order, each once. |
+| `sanshou::paths(prompt)` |  |  |  | paths: The paths mentioned in `prompt`, in order, each once. |
 | `sanshou::once(acc, p)` |  |  |  |  |
 | `sanshou::line_end(text)` |  |  |  |  |
 | `sanshou::block(p, text)` |  |  |  |  |
-| `sanshou::expand(prompt)` |  |  | `B0001` | The hook: the prompt with every attachable mention appended, or nil when |
+| `sanshou::expand(prompt)` |  |  | `B0001` | expand: The hook: the prompt with every attachable mention appended, or nil when |
 
 ## wariate
 
@@ -215,10 +215,10 @@ yushutsu (輸出) — export: how a hosted bidama tells arnes what it serves.
 
 | definition | other name | shares a builtin's name | waived | what it does |
 |---|---|---|---|---|
-| `yushutsu::line(fields)` |  |  |  | One export line from its fields. |
-| `yushutsu::render(rows)` |  |  |  | The exports text from rows of fields. |
-| `yushutsu::rows(text)` |  |  |  | The rows of an exports text, each line split into its words. |
-| `yushutsu::column(rs, i)` |  |  |  | The field at `i` of every row. |
+| `yushutsu::line(fields)` |  |  |  | line: One export line from its fields. |
+| `yushutsu::render(rows)` |  |  |  | render: The exports text from rows of fields. |
+| `yushutsu::rows(text)` |  |  |  | rows: The rows of an exports text, each line split into its words. |
+| `yushutsu::column(rs, i)` |  |  |  | column: The field at `i` of every row. |
 
 ## Names several bidamas define
 

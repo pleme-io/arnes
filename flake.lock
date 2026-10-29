@@ -14,11 +14,11 @@
         "tatara-rust-ast": "tatara-rust-ast"
       },
       "locked": {
-        "lastModified": 1793171546,
-        "narHash": "sha256-9X+CBNjgBJjvXaIOkKK1lvL5e+bW/Sd5arm/QniKHEg=",
+        "lastModified": 1793264838,
+        "narHash": "sha256-34q0hBBwdgkxV2I0NnvAn+fOfqVkEfYJQY4CLtr7eFQ=",
         "owner": "pleme-io",
         "repo": "blue",
-        "rev": "f655a0c5cbc27ae78507085dbd716c7d4c602490",
+        "rev": "56910482f0b1f215983ab52a28c4c53fb728bffa",
         "type": "github"
       },
       "original": {
@@ -2624,11 +2624,11 @@
     "helmworks": {
       "flake": false,
       "locked": {
-        "lastModified": 1792279583,
-        "narHash": "sha256-u7OqT0figq1TmJHEWSA8gyIyKnd2qLkCIrtKPh2zCsE=",
+        "lastModified": 1793260464,
+        "narHash": "sha256-PUwFrMtwtcCFR/JPXGe1OrrteQryVXqVpJpWTQQpeF0=",
         "owner": "pleme-io",
         "repo": "helmworks",
-        "rev": "c511ae42cdd738f13d9336693642876d42851b7f",
+        "rev": "1141ff120a1dc725c3e6b0d59d538c074dfd4c19",
         "type": "github"
       },
       "original": {
@@ -3864,11 +3864,11 @@
         "tatara-lisp": "tatara-lisp"
       },
       "locked": {
-        "lastModified": 1792286059,
-        "narHash": "sha256-qqH15xP31+izad4sPiSHK70k5PYXjsWQHjHKjrRNeC0=",
+        "lastModified": 1793260503,
+        "narHash": "sha256-dgD1/LaAlhdksyiX5XUqHeo8HQ5mO9XuH2AevaBc0KU=",
         "owner": "pleme-io",
         "repo": "substrate",
-        "rev": "96b98663485ae857313a452e5b120128b891d92e",
+        "rev": "cd9ba00859613ba2f0d2dfd29cff2d33016febbf",
         "type": "github"
       },
       "original": {
