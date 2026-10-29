@@ -2779,7 +2779,7 @@ mod tests {
         let reg = policy_bidama(
             "erabu",
             "def exports()\n  \"hook skills keep\"\nend\n\
-             def keep(s)\n  join(filter(fn(n) n != \"kit\" end, map(fn(k) json_get(k, \"name\") end, json_parse(s))), \"\\n\")\nend\n",
+             def keep(s)\n  join(filter(fn(n) n != \"kit\" end, map(fn(k) json_get(k, :name) end, json_parse(s))), \"\\n\")\nend\n",
         );
         let (skills, notes) = session_skills(&cfg, &reg);
         assert!(notes.is_empty(), "{notes:?}");
@@ -2801,7 +2801,7 @@ mod tests {
         let reg = policy_bidama(
             "namake",
             "def exports()\n  \"hook mcp-lazy decide\"\nend\n\
-             def decide(s)\n  n = json_get(json_parse(s), \"name\")\n  if n == \"splunk\"\n    \"lazy\"\n  elsif n == \"github\"\n    \"sometimes\"\n  else\n    nil\n  end\nend\n",
+             def decide(s)\n  n = json_get(json_parse(s), :name)\n  if n == \"splunk\"\n    \"lazy\"\n  elsif n == \"github\"\n    \"sometimes\"\n  else\n    nil\n  end\nend\n",
         );
         let (hooked, notes) = mcp_registry(&cfg, &reg);
         assert_eq!(lazy(&hooked), ["splunk", "codesearch"], "splunk by the hook, codesearch by the glob");

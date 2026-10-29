@@ -603,7 +603,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("arnes-gate-blue-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.b");
-        std::fs::write(&path, "def echo(input)\n  json_get(json_parse(input), \"text\")\nend\n").unwrap();
+        std::fs::write(&path, "def echo(input)\n  json_get(json_parse(input), :text)\nend\n").unwrap();
         let spec = |name: &str, read_only| arnes_blue::ToolSpec {
             name: name.into(),
             description: String::new(),

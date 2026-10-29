@@ -865,19 +865,25 @@ pub mod bidamas {
             if let Some(extra) = std::env::var_os("ARNES_BIDAMAS") {
                 roots.extend(std::env::split_paths(&extra));
             }
-            Self::new(roots, blue_lang_pkg::load_path::LoadPath::from_env())
+            Self::new(roots, blue_lang_pkg::load_path::Environment::from_env().load_path(None))
         }
 
         /// Only the compiled-in distribution: no user, nix or `$BLUE_PATH` roots.
         #[must_use]
         pub fn embedded_only() -> Self {
-            Self::new(Vec::new(), blue_lang_pkg::load_path::LoadPath::new(Vec::new()))
+            Self::new(Vec::new(), blue_lang_pkg::load_path::LoadPath::default())
         }
 
         /// `before` the embedded distribution, `after` it.
         #[must_use]
         pub fn new(before: Vec<PathBuf>, after: blue_lang_pkg::load_path::LoadPath) -> Self {
-            Self { before: blue_lang_pkg::load_path::LoadPath::new(before), after }
+            let joined: Vec<String> = before.iter().map(|r| r.to_string_lossy().into_owned()).collect();
+            let before = blue_lang_pkg::load_path::Environment::from_vars(
+                std::ffi::OsStr::new(&joined.join(":")),
+                std::ffi::OsStr::new(""),
+            )
+            .load_path(None);
+            Self { before, after }
         }
     }
 
@@ -1160,7 +1166,7 @@ mod tests {
         let says = tempfile::tempdir().unwrap();
         let loud = tempfile::tempdir().unwrap();
         let nil = script(&nil, "def p(a)\n  nil\nend\n", "p");
-        let says = script(&says, "def p(a)\n  json_get(json_parse(a), \"n\")\nend\n", "p");
+        let says = script(&says, "def p(a)\n  json_get(json_parse(a), :n)\nend\n", "p");
         let loud = script(&loud, "def p(a)\n  arnes_toast(\"info\", \"hi\")\n  \"x\"\nend\n", "p");
         assert!(policy("x", std::slice::from_ref(&nil), "{}", budget).is_none());
         assert_eq!(policy("x", &[nil.clone(), says.clone()], r#"{"n":"base"}"#, budget).unwrap().unwrap(), "base");
@@ -1197,7 +1203,7 @@ mod tests {
     #[test]
     fn a_tool_parses_its_json_input() {
         let dir = tempfile::tempdir().unwrap();
-        let src = "def shout(input)\n  args = json_parse(input)\n  upcase(json_get(args, \"text\"))\nend\n";
+        let src = "def shout(input)\n  args = json_parse(input)\n  upcase(json_get(args, :text))\nend\n";
         let s = script(&dir, src, "shout");
         let tools = Tools::new(vec![ToolSpec {
             name: "shout".into(),
@@ -1348,7 +1354,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
     }
 
     fn embedded() -> bidamas::BidamaPath {
-        bidamas::BidamaPath::new(Vec::new(), blue_lang_pkg::load_path::LoadPath::new(Vec::new()))
+        bidamas::BidamaPath::new(Vec::new(), blue_lang_pkg::load_path::LoadPath::default())
     }
 
     fn hosted() -> bidamas::Registry {
@@ -1404,7 +1410,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
             "def exports()\n  \"segment s s x\"\nend\ndef s(a)\n  arnes_clear()\n  \"x\"\nend\n",
         )
         .unwrap();
-        let path = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::new(Vec::new()));
+        let path = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::default());
         let (reg, refused) = bidamas::Registry::load(&path, &["seg".to_owned()]);
         assert!(refused.is_empty(), "{refused:?}");
         assert!(reg.segment(&path, "s", "").unwrap_err().message.contains("may not ask for effects"));
@@ -1549,13 +1555,13 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("meirei")).unwrap();
         std::fs::write(dir.path().join("meirei/meirei.b"), "def clear(args)\n  \"mine\"\nend\n").unwrap();
-        let empty = blue_lang_pkg::load_path::LoadPath::new(Vec::new());
+        let empty = blue_lang_pkg::load_path::LoadPath::default();
         let mine = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], empty);
         let out = hosted().command(&mine, "clear", "", Context::default()).unwrap();
         assert_eq!(out.text(), "mine");
         assert!(out.effects.is_empty());
         let other = tempfile::tempdir().unwrap();
-        let built = bidamas::BidamaPath::new(vec![other.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::new(Vec::new()));
+        let built = bidamas::BidamaPath::new(vec![other.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::default());
         assert_eq!(hosted().command(&built, "clear", "", Context::default()).unwrap().effects, vec![arm("clear", "")]);
     }
 
@@ -1593,7 +1599,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
             "use(\"yushutsu\", [:render])\ndef exports()\n  render([[\"color\", \"accent\", \"#00aaff\"], [\"color\", \"border\", \"#333333\"]])\nend\n",
         )
         .unwrap();
-        let path = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::new(Vec::new()));
+        let path = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::default());
         let (reg, refused) = bidamas::Registry::load(&path, &["umi".to_owned()]);
         assert!(refused.is_empty(), "{refused:?}");
         assert_eq!(reg.colors(&[]), [("accent".to_owned(), "#00aaff".to_owned()), ("border".to_owned(), "#333333".to_owned())]);
