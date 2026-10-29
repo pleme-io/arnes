@@ -25,7 +25,7 @@ end
 
 def line(p)
   server = get_str(p, "server", "?")
-  if json_get(p, "up")
+  if json_get(p, :up)
     "#{server} #{get_int(p, "latency_ms", 0)}ms"
   else
     "#{server} down"
@@ -48,7 +48,7 @@ end
 
 def tick(facts)
   ps = json_parse(facts)
-  up = filter((p) -> json_get(p, "up"), ps)
+  up = filter((p) -> json_get(p, :up), ps)
   if length(ps) == 0
     "no MCP servers"
   else

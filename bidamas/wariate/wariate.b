@@ -1382,7 +1382,7 @@ test "the route question offers exactly the eligible routes, by their descriptio
   assert size(last(last(qs))[:levels]) == 5
   sent = json_parse(request("judge-latest", state_of(f), qs))
   assert size(
-    json_get(json_get(json_get(sent, "questions"), "route"), "criteria")
+    json_get(json_get(json_get(sent, :questions), :route), :criteria)
   ) == 3
   assert questions(f, [first(e)]).nil?
   bare = put_all(example_route("bare", 1, nil), [[:describe, ""]])
@@ -1409,14 +1409,14 @@ test "an answer round-trips through json_parse, memory and all"
   f = example_paid_facts([])
   d = decide(f, example_level(3, 0.0, 0.0), {decisions: 2})
   doc = json_parse(answer(d))
-  assert json_get(doc, "route") == "sonnet"
-  assert json_get(doc, "why") == d[:why]
-  assert memory_of(json_get(doc, "memory")) == d[:memory]
+  assert json_get(doc, :route) == "sonnet"
+  assert json_get(doc, :why) == d[:why]
+  assert memory_of(json_get(doc, :memory)) == d[:memory]
   assert d[:memory][:decisions] == 3
-  assert json_get(json_get(doc, "judged"), "difficulty") == 3.0
+  assert json_get(json_get(doc, :judged), :difficulty) == 3.0
   kept = json_parse(answer(decide(f, nil, {})))
-  assert json_get(kept, "route").nil?
-  assert json_get(kept, "judged").nil?
+  assert json_get(kept, :route).nil?
+  assert json_get(kept, :judged).nil?
   assert memory_of(json_parse(json_stringify(memory_of(nil)))) == memory_of(nil)
 end
 
