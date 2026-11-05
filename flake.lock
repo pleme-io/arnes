@@ -11,14 +11,15 @@
           "nixpkgs"
         ],
         "substrate": "substrate",
+        "tameshi": "tameshi",
         "tatara-rust-ast": "tatara-rust-ast"
       },
       "locked": {
-        "lastModified": 1793277281,
-        "narHash": "sha256-yxhZZJGpv5CQc16VV0ORV7gnKUJuF3J9NhQjPnvwPbE=",
+        "lastModified": 1793871992,
+        "narHash": "sha256-/biXpgkGot9q0YgW1LI1j3/MKUqJ0dEpPhCSJaZJ/dM=",
         "owner": "pleme-io",
         "repo": "blue",
-        "rev": "dfd6d905792b0fc12aab7821870e8b6c609ef016",
+        "rev": "df04aecfbec7f2fcafc8cd43646d97d99a441617",
         "type": "github"
       },
       "original": {
@@ -5548,6 +5549,27 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "tameshi": {
+      "inputs": {
+        "substrate": [
+          "blue",
+          "substrate"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793394257,
+        "narHash": "sha256-ZUGonz19ox8P2ZsPuaawRHzrLAn5DQXVpx77DL7xlNY=",
+        "owner": "pleme-io",
+        "repo": "tameshi",
+        "rev": "b17a3ead95e2476bc4d62e7507a0d27b72915d81",
+        "type": "github"
+      },
+      "original": {
+        "owner": "pleme-io",
+        "repo": "tameshi",
         "type": "github"
       }
     },

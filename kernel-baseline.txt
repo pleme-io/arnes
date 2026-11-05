@@ -14,7 +14,7 @@ rust: arnes 2715
 # provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches
 rust: arnes-anthropic 582
 # the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships
-rust: arnes-blue 753
+rust: arnes-blue 752
 # configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section
 rust: arnes-config 1731
 # conversation and usage types the kernel crates share

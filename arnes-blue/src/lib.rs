@@ -473,14 +473,8 @@ fn run(
         reach: ctx.reach.cloned(),
         ..Host::default()
     };
-    let entry = Entry { path, text };
-    let mut program: Hosted<Host> = blue_lang_runtime::hosted::load_hosted(entry, loader, &mut host, |interp: &mut Interpreter<Host>| {
-        <Host as blue_lang_host::Host>::install(interp);
-        if let Some(flag) = INTERRUPT.with(|h| h.borrow().clone()) {
-            interp.set_interrupt(flag);
-        }
-    })
-    .map_err(|e| fail(Stage::Load, e.to_string()))?;
+    let prepared = PROGRAMS.prepare(Entry { path, text }, loader, &mut host, install).map_err(|e| fail(Stage::Load, e.to_string()))?;
+    let mut program: Hosted<Host> = blue_lang_runtime::hosted::load_program(&prepared, &mut host, install).map_err(|e| fail(Stage::Load, e.to_string()))?;
     if !program.defines(function) {
         return Err(fail(Stage::Call, format!("{label} defines no function named {function}")));
     }
@@ -494,6 +488,13 @@ fn run(
     host.store.commit(&host.writes).map_err(|e| fail(Stage::Store, e.to_string()))?;
     Ok(Outcome { returned, effects: host.effects })
 }
+
+fn install(interp: &mut Interpreter<Host>) {
+    <Host as blue_lang_host::Host>::install(interp);
+    INTERRUPT.with(|h| h.borrow().clone()).into_iter().for_each(|flag| interp.set_interrupt(flag));
+}
+
+static PROGRAMS: std::sync::LazyLock<blue_lang_runtime::hosted::Programs> = std::sync::LazyLock::new(Default::default);
 
 thread_local! {
     /// The interrupt of the budgeted call running on this thread, if any: every
@@ -1261,6 +1262,27 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
 
     fn embedded() -> bidamas::BidamaPath {
         bidamas::BidamaPath::new(Vec::new(), blue_lang_pkg::load_path::LoadPath::default())
+    }
+
+    #[test]
+    fn a_script_is_checked_once_and_each_call_only_evaluates() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = script(&dir, "def run(a)\n  arnes_clear()\n  \"done\"\nend\n", "run");
+        assert_eq!(invoke("/x", &s, &[""], "").unwrap().text(), "done");
+        blue_lang_runtime::timings::enable();
+        let again = invoke("/x", &s, &[""], "").unwrap();
+        assert_eq!((again.text(), again.effects.len()), ("done", 1));
+        let checked: Vec<_> = blue_lang_runtime::timings::totals().into_iter().filter(|(s, d)| *s == blue_lang_runtime::timings::Stage::Check && !d.is_zero()).collect();
+        assert!(checked.is_empty(), "a repeated call ran the check stage: {checked:?}");
+    }
+
+    #[test]
+    fn an_edited_script_is_prepared_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = script(&dir, "def run(a)\n  \"one\"\nend\n", "run");
+        assert_eq!(invoke("/x", &s, &[""], "").unwrap().text(), "one");
+        std::fs::write(&s.path, "def run(a)\n  \"two\"\nend\n").unwrap();
+        assert_eq!(invoke("/x", &s, &[""], "").unwrap().text(), "two");
     }
 
     fn hosted() -> bidamas::Registry {
