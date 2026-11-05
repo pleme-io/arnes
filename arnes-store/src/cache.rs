@@ -142,8 +142,7 @@ mod tests {
         let fallback: Result<V, String> = load_or_refresh(Some(&p), DAY, || async { Err("offline".to_owned()) }).await;
         assert_eq!(fallback.unwrap().n, 3, "stale beats nothing");
 
-        let none: Result<V, String> =
-            load_or_refresh(Some(&d.path().join("absent.json")), DAY, || async { Err("offline".to_owned()) }).await;
+        let none: Result<V, String> = load_or_refresh(Some(&d.path().join("absent.json")), DAY, || async { Err("offline".to_owned()) }).await;
         assert_eq!(none.unwrap_err(), "offline");
     }
 }

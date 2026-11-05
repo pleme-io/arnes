@@ -22,7 +22,7 @@ pub mod usage;
 pub use conversation::{Conversation, ConversationId, Role};
 pub use error::{ArnesError, Result};
 pub use message::{ContentBlock, Message, StopReason};
-pub use thinking::{parse_named, EchoRule, Effort, ThinkingMode};
+pub use thinking::{EchoRule, Effort, ThinkingMode, parse_named};
 pub use tool::{Tool, ToolInputSchema, ToolResult, ToolUse};
 pub use usage::Usage;
 

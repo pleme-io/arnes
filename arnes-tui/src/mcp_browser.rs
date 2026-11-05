@@ -169,11 +169,7 @@ impl McpBrowser {
     /// Indices of server `s`'s tools the filter keeps.
     #[must_use]
     pub fn visible_tools(&self, s: usize) -> Vec<usize> {
-        self.servers.get(s).map_or_else(Vec::new, |srv| {
-            (0..srv.tools.len())
-                .filter(|&i| self.tool_nav.matches(&srv.tools[i].name) || self.tool_nav.matches(&srv.tools[i].description))
-                .collect()
-        })
+        self.servers.get(s).map_or_else(Vec::new, |srv| (0..srv.tools.len()).filter(|&i| self.tool_nav.matches(&srv.tools[i].name) || self.tool_nav.matches(&srv.tools[i].description)).collect())
     }
 
     /// The current view's rows as text: what search matches and yank copies.
@@ -325,10 +321,7 @@ impl McpBrowser {
                     let first = tool.description.lines().next().unwrap_or("");
                     let selected = i == self.tool_nav.cursor();
                     let marker = if selected { "❯" } else { " " };
-                    rows.push(Row::new(
-                        format!("{marker} {ro} {:<32} {first}", tool.name),
-                        if selected { RowKind::Selected } else { RowKind::Normal },
-                    ));
+                    rows.push(Row::new(format!("{marker} {ro} {:<32} {first}", tool.name), if selected { RowKind::Selected } else { RowKind::Normal }));
                 }
                 let offset = keep_visible(header + self.tool_nav.cursor(), height, rows.len());
                 (rows, offset)
@@ -363,10 +356,7 @@ impl McpBrowser {
         rows.extend(tool.description.lines().map(|l| Row::new(l, RowKind::Normal)));
         rows.push(Row::new(String::new(), RowKind::Normal));
         rows.push(Row::new("parameters", RowKind::Heading));
-        let required: Vec<&str> = tool.schema["required"]
-            .as_array()
-            .map(|a| a.iter().filter_map(serde_json::Value::as_str).collect())
-            .unwrap_or_default();
+        let required: Vec<&str> = tool.schema["required"].as_array().map(|a| a.iter().filter_map(serde_json::Value::as_str).collect()).unwrap_or_default();
         match tool.schema["properties"].as_object() {
             Some(props) if !props.is_empty() => {
                 for (name, p) in props {
@@ -429,22 +419,8 @@ mod tests {
                 tools: (0..30).map(|i| tool(&format!("get_{i}"))).collect(),
                 health: Some("up 12ms, 30 tools, 4s ago".into()),
             },
-            ServerEntry {
-                name: "beta".into(),
-                status: ServerStatus::Failed("timeout".into()),
-                command: "beta-mcp".into(),
-                log: None,
-                tools: vec![],
-                health: None,
-            },
-            ServerEntry {
-                name: "gamma".into(),
-                status: ServerStatus::Connected,
-                command: "gamma-mcp".into(),
-                log: None,
-                tools: vec![tool("search"), tool("write")],
-                health: None,
-            },
+            ServerEntry { name: "beta".into(), status: ServerStatus::Failed("timeout".into()), command: "beta-mcp".into(), log: None, tools: vec![], health: None },
+            ServerEntry { name: "gamma".into(), status: ServerStatus::Connected, command: "gamma-mcp".into(), log: None, tools: vec![tool("search"), tool("write")], health: None },
         ];
         McpBrowser::new(servers, "built-in: Bash Read".into())
     }

@@ -64,12 +64,7 @@ impl ModelInfo {
 
     #[must_use]
     pub fn system_prompt_update(&self) -> Option<&str> {
-        self.api_capabilities
-            .as_ref()?
-            .anthropic_messages
-            .as_ref()?
-            .system_prompt_update
-            .as_deref()
+        self.api_capabilities.as_ref()?.anthropic_messages.as_ref()?.system_prompt_update.as_deref()
     }
 }
 
@@ -93,11 +88,8 @@ impl Catalog {
     /// # Errors
     /// Names the model and every id the catalogue does contain.
     pub fn require(&self, id: &str) -> Result<&ModelInfo, String> {
-        self.get(id).ok_or_else(|| {
-            format!("model {id:?} is not in the provider catalogue; available: {:?}", self.ids())
-        })
+        self.get(id).ok_or_else(|| format!("model {id:?} is not in the provider catalogue; available: {:?}", self.ids()))
     }
-
 }
 
 impl arnes_store::cache::Stamped for Catalog {
@@ -110,7 +102,6 @@ impl arnes_store::cache::Stamped for Catalog {
 struct ListResponse {
     data: Vec<ModelInfo>,
 }
-
 
 /// `$XDG_CACHE_HOME/arnes/models-<provider>.json`, else `~/.cache/…`.
 #[must_use]
@@ -152,13 +143,7 @@ pub async fn fetch(url: &str, auth: Auth, key: &cofre_secret::Secret, timeout: D
 ///
 /// # Errors
 /// Only when there is neither a usable cache nor a successful fetch.
-pub async fn load_or_refresh(
-    provider: &str,
-    url: &str,
-    auth: Auth,
-    key: &cofre_secret::Secret,
-    max_age: Duration,
-) -> Result<Catalog, String> {
+pub async fn load_or_refresh(provider: &str, url: &str, auth: Auth, key: &cofre_secret::Secret, max_age: Duration) -> Result<Catalog, String> {
     let path = cache_path(provider);
     arnes_store::cache::load_or_refresh(path.as_deref(), max_age, || fetch(url, auth, key, Duration::from_secs(5))).await
 }

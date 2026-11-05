@@ -27,16 +27,13 @@ pub fn fleet_theme(tema: Option<&str>) -> (FleetTheme, Option<String>) {
     if name == "dark" {
         return (FleetTheme::prescribed_default(), None);
     }
-    FleetTheme::all()
-        .iter()
-        .find(|t| t.name() == name || t.preset_name() == name)
-        .map_or_else(
-            || {
-                let known: Vec<&str> = FleetTheme::all().iter().map(FleetTheme::name).collect();
-                (FleetTheme::prescribed_default(), Some(format!("tema {raw:?} is not a fleet theme ({}); using {}", known.join(", "), FleetTheme::prescribed_default().name())))
-            },
-            |t| (*t, None),
-        )
+    FleetTheme::all().iter().find(|t| t.name() == name || t.preset_name() == name).map_or_else(
+        || {
+            let known: Vec<&str> = FleetTheme::all().iter().map(FleetTheme::name).collect();
+            (FleetTheme::prescribed_default(), Some(format!("tema {raw:?} is not a fleet theme ({}); using {}", known.join(", "), FleetTheme::prescribed_default().name())))
+        },
+        |t| (*t, None),
+    )
 }
 
 /// The palette for `tema` at `depth`.
@@ -47,8 +44,7 @@ pub fn palette(tema: Option<&str>, depth: ColorDepth) -> (Palette, Option<String
 }
 
 /// The palette slots a theme can set, by the name a `color` row uses.
-pub const PALETTE_SLOTS: [&str; 9] =
-    ["background", "foreground", "accent", "error", "warning", "success", "selection", "muted", "border"];
+pub const PALETTE_SLOTS: [&str; 9] = ["background", "foreground", "accent", "error", "warning", "success", "selection", "muted", "border"];
 
 /// `palette` with `(slot, #RRGGBB)` rows applied in order (a theme bidama's
 /// `color` exports). A row naming no slot or no colour is refused alone.
@@ -140,11 +136,7 @@ mod tests {
     #[test]
     fn color_rows_set_slots_and_bad_rows_are_refused_alone() {
         let base = egaku_term::theme::Palette::default();
-        let rows = vec![
-            ("accent".to_owned(), "#00aaff".to_owned()),
-            ("sky".to_owned(), "#ffffff".to_owned()),
-            ("muted".to_owned(), "blue".to_owned()),
-        ];
+        let rows = vec![("accent".to_owned(), "#00aaff".to_owned()), ("sky".to_owned(), "#ffffff".to_owned()), ("muted".to_owned(), "blue".to_owned())];
         let (p, refused) = with_colors(base, &rows);
         assert_eq!(p.accent, egaku_term::theme::hex_color("#00aaff").unwrap());
         assert_eq!(p.muted, base.muted);
@@ -346,13 +338,7 @@ mod spec_tests {
 
     #[test]
     fn spec_reads_config_and_refuses_bad_values_alone() {
-        let cfg = arnes_config::ArnesConfig {
-            motion: Some("off".into()),
-            notice_rows: Some(99),
-            notice_warn_secs: Some(20),
-            picker_rows: Some(8),
-            ..arnes_config::ArnesConfig::default()
-        };
+        let cfg = arnes_config::ArnesConfig { motion: Some("off".into()), notice_rows: Some(99), notice_warn_secs: Some(20), picker_rows: Some(8), ..arnes_config::ArnesConfig::default() };
         let (s, refused) = LookSpec::from_config(&cfg);
         assert!(!s.motion);
         assert_eq!(s.notice_rows, 3, "refused, the built-in kept");

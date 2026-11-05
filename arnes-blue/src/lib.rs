@@ -85,11 +85,20 @@ pub enum Effect {
     /// `arnes_route_switch(name)`), `mcp` and `vigy` (`arnes_open(view, args)`).
     /// Each host call validates its own domain, so the arm and its arguments
     /// are always ones the kernel serves.
-    Arm { arm: String, args: String },
+    Arm {
+        arm: String,
+        args: String,
+    },
     /// Open a navigable panel in the conversation region (`arnes_panel(title, text)`).
-    Panel { title: String, text: String },
+    Panel {
+        title: String,
+        text: String,
+    },
     /// Change a setting (`arnes_set(key, value)`); the kernel validates it.
-    Set { key: String, value: String },
+    Set {
+        key: String,
+        value: String,
+    },
 }
 
 /// The pickers `arnes_pick(kind)` opens.
@@ -414,12 +423,7 @@ pub fn invoke(extension: &str, script: &Script, args: &[&str], conversation: &st
 /// # Errors
 /// As [`invoke`].
 pub fn invoke_with(extension: &str, script: &Script, args: &[&str], ctx: Context<'_>) -> Result<Outcome, ExtError> {
-    let fail = |stage, message: String| ExtError {
-        extension: extension.to_owned(),
-        script: script.to_string(),
-        stage,
-        message,
-    };
+    let fail = |stage, message: String| ExtError { extension: extension.to_owned(), script: script.to_string(), stage, message };
     let Some(package) = script.path.to_str().and_then(|p| p.strip_prefix(bidamas::SCHEME)) else {
         return Err(fail(Stage::Read, "a hosted hook names a bidama (bidama:<package>)".into()));
     };
@@ -431,23 +435,12 @@ pub fn invoke_with(extension: &str, script: &Script, args: &[&str], ctx: Context
 ///
 /// # Errors
 /// As [`invoke`], plus [`Stage::Store`] when the writes are refused.
-pub fn invoke_with_state(
-    extension: &str,
-    script: &Script,
-    args: &[&str],
-    conversation: &str,
-    state: Option<PathBuf>,
-) -> Result<Outcome, ExtError> {
+pub fn invoke_with_state(extension: &str, script: &Script, args: &[&str], conversation: &str, state: Option<PathBuf>) -> Result<Outcome, ExtError> {
     invoke_in(extension, script, args, Context { conversation, ..Context::default() }, state)
 }
 
 fn invoke_in(extension: &str, script: &Script, args: &[&str], ctx: Context<'_>, state: Option<PathBuf>) -> Result<Outcome, ExtError> {
-    let fail = |stage, message: String| ExtError {
-        extension: extension.to_owned(),
-        script: script.to_string(),
-        stage,
-        message,
-    };
+    let fail = |stage, message: String| ExtError { extension: extension.to_owned(), script: script.to_string(), stage, message };
     if let Some(package) = script.path.to_str().and_then(|p| p.strip_prefix(bidamas::SCHEME)) {
         return bidamas::run_bidama(&fail, package, &script.function, args, ctx, state, &bidamas::BidamaPath::from_env());
     }
@@ -481,14 +474,13 @@ fn run(
         ..Host::default()
     };
     let entry = Entry { path, text };
-    let mut program: Hosted<Host> =
-        blue_lang_runtime::hosted::load_hosted(entry, loader, &mut host, |interp: &mut Interpreter<Host>| {
-            <Host as blue_lang_host::Host>::install(interp);
-            if let Some(flag) = INTERRUPT.with(|h| h.borrow().clone()) {
-                interp.set_interrupt(flag);
-            }
-        })
-        .map_err(|e| fail(Stage::Load, e.to_string()))?;
+    let mut program: Hosted<Host> = blue_lang_runtime::hosted::load_hosted(entry, loader, &mut host, |interp: &mut Interpreter<Host>| {
+        <Host as blue_lang_host::Host>::install(interp);
+        if let Some(flag) = INTERRUPT.with(|h| h.borrow().clone()) {
+            interp.set_interrupt(flag);
+        }
+    })
+    .map_err(|e| fail(Stage::Load, e.to_string()))?;
     if !program.defines(function) {
         return Err(fail(Stage::Call, format!("{label} defines no function named {function}")));
     }
@@ -567,18 +559,11 @@ pub fn policy_with(event: &str, scripts: &[Script], arg: &str, budget: std::time
         let (s, a, r) = (script.clone(), arg.to_owned(), reach.clone());
         let extension = format!("{event} hook");
         let name = extension.clone();
-        let out = within_budget(&extension, budget, move || {
-            invoke_in(&name, &s, &[&a], Context { reach: r.as_ref(), ..Context::default() }, state_path(&s))
-        });
+        let out = within_budget(&extension, budget, move || invoke_in(&name, &s, &[&a], Context { reach: r.as_ref(), ..Context::default() }, state_path(&s)));
         match out {
             Err(e) => return Some(Err(e)),
             Ok(o) if !o.effects.is_empty() => {
-                return Some(Err(ExtError {
-                    extension,
-                    script: script.function.clone(),
-                    stage: Stage::Call,
-                    message: "a policy hook answers and may not ask for effects".into(),
-                }));
+                return Some(Err(ExtError { extension, script: script.function.clone(), stage: Stage::Call, message: "a policy hook answers and may not ask for effects".into() }));
             }
             Ok(o) if o.returned == Returned::Nothing => {}
             Ok(o) => return Some(Ok(o.text().to_owned())),
@@ -640,14 +625,7 @@ pub mod bidamas {
     }
 
     impl Kind {
-        const ALL: [(&'static str, Self); 6] = [
-            ("command", Self::Command),
-            ("segment", Self::Segment),
-            ("bind", Self::Bind),
-            ("vigy", Self::Vigy),
-            ("color", Self::Color),
-            ("hook", Self::Hook),
-        ];
+        const ALL: [(&'static str, Self); 6] = [("command", Self::Command), ("segment", Self::Segment), ("bind", Self::Bind), ("vigy", Self::Vigy), ("color", Self::Color), ("hook", Self::Hook)];
     }
 
     /// One export: `/name` or segment `name`, served by `package#function`.
@@ -678,25 +656,15 @@ pub mod bidamas {
                 // since a two-key chord has a space in it.
                 let mut b = line.trim().splitn(3, ' ').skip(1);
                 match (b.next(), b.next()) {
-                    (Some(action), Some(chord)) if !chord.trim().is_empty() => ok.push(Export {
-                        kind,
-                        name: chord.trim().to_owned(),
-                        package: package.to_owned(),
-                        function: action.to_owned(),
-                        description: String::new(),
-                    }),
+                    (Some(action), Some(chord)) if !chord.trim().is_empty() => {
+                        ok.push(Export { kind, name: chord.trim().to_owned(), package: package.to_owned(), function: action.to_owned(), description: String::new() })
+                    }
                     _ => refused.push(format!("{package} export {}: bind needs an action and a chord", i + 1)),
                 }
                 continue;
             }
             match (name, function) {
-                (Some(name), Some(function)) => ok.push(Export {
-                    kind,
-                    name: name.to_owned(),
-                    package: package.to_owned(),
-                    function: function.to_owned(),
-                    description: description.to_owned(),
-                }),
+                (Some(name), Some(function)) => ok.push(Export { kind, name: name.to_owned(), package: package.to_owned(), function: function.to_owned(), description: description.to_owned() }),
                 _ => refused.push(format!("{package} export {}: needs a name and a function", i + 1)),
             }
         }
@@ -762,22 +730,14 @@ pub mod bidamas {
         /// skipping packages named in `off`.
         #[must_use]
         pub fn colors(&self, off: &[String]) -> Vec<(String, String)> {
-            self.exports
-                .iter()
-                .filter(|e| e.kind == Kind::Color && !off.contains(&e.package))
-                .map(|e| (e.name.clone(), e.function.clone()))
-                .collect()
+            self.exports.iter().filter(|e| e.kind == Kind::Color && !off.contains(&e.package)).map(|e| (e.name.clone(), e.function.clone())).collect()
         }
 
         /// The hosted key bindings, `(chord, action id)`, in hosting order,
         /// skipping packages named in `off`.
         #[must_use]
         pub fn binds(&self, off: &[String]) -> Vec<(String, String)> {
-            self.exports
-                .iter()
-                .filter(|e| e.kind == Kind::Bind && !off.contains(&e.package))
-                .map(|e| (e.name.clone(), e.function.clone()))
-                .collect()
+            self.exports.iter().filter(|e| e.kind == Kind::Bind && !off.contains(&e.package)).map(|e| (e.name.clone(), e.function.clone())).collect()
         }
 
         /// The hosted vigies as `(name, script, every)`, the script naming its
@@ -789,11 +749,7 @@ pub mod bidamas {
             let mut refused = Vec::new();
             for e in self.exports.iter().filter(|e| e.kind == Kind::Vigy && !off.contains(&e.name)) {
                 match e.description.trim().parse::<u64>() {
-                    Ok(ms) if ms >= 100 => ok.push((
-                        e.name.clone(),
-                        super::Script::new(format!("{SCHEME}{}", e.package), e.function.clone()),
-                        std::time::Duration::from_millis(ms),
-                    )),
+                    Ok(ms) if ms >= 100 => ok.push((e.name.clone(), super::Script::new(format!("{SCHEME}{}", e.package), e.function.clone()), std::time::Duration::from_millis(ms))),
                     _ => refused.push(format!("{} vigy {}: every-ms is a whole number of at least 100", e.package, e.name)),
                 }
             }
@@ -830,12 +786,7 @@ pub mod bidamas {
             };
             let out = call(path, &e.package, &e.function, &extension, &[arg], Context::default(), None)?;
             if !out.effects.is_empty() {
-                return Err(ExtError {
-                    extension,
-                    script: format!("{}#{}", e.package, e.function),
-                    stage: Stage::Call,
-                    message: "a segment returns text and may not ask for effects".into(),
-                });
+                return Err(ExtError { extension, script: format!("{}#{}", e.package, e.function), stage: Stage::Call, message: "a segment returns text and may not ask for effects".into() });
             }
             Ok(out.text().to_owned())
         }
@@ -856,9 +807,7 @@ pub mod bidamas {
         #[must_use]
         pub fn from_env() -> Self {
             let mut roots: Vec<PathBuf> = Vec::new();
-            let config = std::env::var_os("XDG_CONFIG_HOME")
-                .map(PathBuf::from)
-                .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")));
+            let config = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")));
             if let Some(c) = config {
                 roots.push(c.join("arnes/bidamas"));
             }
@@ -877,7 +826,11 @@ pub mod bidamas {
         /// `before` the embedded distribution, `after` it.
         #[must_use]
         pub fn new(before: Vec<PathBuf>, after: blue_lang_pkg::load_path::LoadPath) -> Self {
-            Self { before: blue_lang_pkg::load_path::Environment::from_vars(std::ffi::OsStr::new(&before.iter().map(|r| r.to_string_lossy()).collect::<Vec<_>>().join(":")), std::ffi::OsStr::new("")).load_path(None), after }
+            Self {
+                before: blue_lang_pkg::load_path::Environment::from_vars(std::ffi::OsStr::new(&before.iter().map(|r| r.to_string_lossy()).collect::<Vec<_>>().join(":")), std::ffi::OsStr::new(""))
+                    .load_path(None),
+                after,
+            }
         }
     }
 
@@ -892,19 +845,12 @@ pub mod bidamas {
             if self.after.resolve(name).is_some() {
                 return self.after.load(name);
             }
-            blue_lang_pkg::embedded::Standard
-                .load(name)
-                .map_err(|e| format!("{e}; arnes also searched its own bidamas, $ARNES_BIDAMAS and $BLUE_PATH"))
+            blue_lang_pkg::embedded::Standard.load(name).map_err(|e| format!("{e}; arnes also searched its own bidamas, $ARNES_BIDAMAS and $BLUE_PATH"))
         }
     }
 
     fn call(path: &BidamaPath, package: &str, function: &str, extension: &str, args: &[&str], ctx: Context<'_>, state: Option<PathBuf>) -> Result<Outcome, ExtError> {
-        let fail = |stage, message: String| ExtError {
-            extension: extension.to_owned(),
-            script: format!("{package}#{function}"),
-            stage,
-            message,
-        };
+        let fail = |stage, message: String| ExtError { extension: extension.to_owned(), script: format!("{package}#{function}"), stage, message };
         run_bidama(&fail, package, function, args, ctx, state, path)
     }
 
@@ -925,7 +871,6 @@ pub mod bidamas {
     fn not_served(extension: String, what: &str) -> ExtError {
         ExtError { extension, script: String::new(), stage: Stage::Call, message: format!("no bidama serves this {what}") }
     }
-
 }
 
 /// `~/x` against `$HOME`; anything else unchanged.
@@ -986,11 +931,7 @@ impl Tools {
     pub fn tools(&self) -> Vec<Tool> {
         self.specs
             .iter()
-            .map(|s| Tool {
-                name: s.name.clone(),
-                description: s.description.clone(),
-                input_schema: s.schema.clone().map_or_else(ToolInputSchema::empty_object, ToolInputSchema),
-            })
+            .map(|s| Tool { name: s.name.clone(), description: s.description.clone(), input_schema: s.schema.clone().map_or_else(ToolInputSchema::empty_object, ToolInputSchema) })
             .collect()
     }
 
@@ -1002,25 +943,13 @@ impl Tools {
     /// The tool is not one of these, or [`ExtError`] as its text.
     pub async fn call(&self, name: &str, input: &serde_json::Value) -> Result<Outcome, ExtError> {
         let Some(spec) = self.get(name).cloned() else {
-            return Err(ExtError {
-                extension: format!("tool {name}"),
-                script: String::new(),
-                stage: Stage::Call,
-                message: "no blue tool by that name".into(),
-            });
+            return Err(ExtError { extension: format!("tool {name}"), script: String::new(), stage: Stage::Call, message: "no blue tool by that name".into() });
         };
         let json = input.to_string();
         let extension = format!("tool {name}");
         tokio::task::spawn_blocking(move || invoke(&extension, &spec.script, &[&json], ""))
             .await
-            .unwrap_or_else(|e| {
-                Err(ExtError {
-                    extension: format!("tool {name}"),
-                    script: String::new(),
-                    stage: Stage::Call,
-                    message: format!("the blue task did not finish: {e}"),
-                })
-            })
+            .unwrap_or_else(|e| Err(ExtError { extension: format!("tool {name}"), script: String::new(), stage: Stage::Call, message: format!("the blue task did not finish: {e}") }))
     }
 }
 
@@ -1037,11 +966,7 @@ pub enum HookEvent {
 }
 
 impl HookEvent {
-    pub const ALL: [(&'static str, Self); 3] = [
-        ("before-submit", Self::BeforeSubmit),
-        ("after-turn", Self::AfterTurn),
-        ("before-tool", Self::BeforeTool),
-    ];
+    pub const ALL: [(&'static str, Self); 3] = [("before-submit", Self::BeforeSubmit), ("after-turn", Self::AfterTurn), ("before-tool", Self::BeforeTool)];
 
     /// # Errors
     /// Names every event when `s` is none of them.
@@ -1184,14 +1109,7 @@ mod tests {
         let s = script(&dir, src, "run");
         let out = invoke("/probe", &s, &["notes.md"], "user: hello").unwrap();
         assert_eq!(out.returned, Returned::Text("done".into()));
-        assert_eq!(
-            out.effects,
-            vec![
-                Effect::Hint("saw 11 chars".into()),
-                Effect::Toast(Level::Warn, "careful".into()),
-                Effect::Insert("@notes.md".into()),
-            ]
-        );
+        assert_eq!(out.effects, vec![Effect::Hint("saw 11 chars".into()), Effect::Toast(Level::Warn, "careful".into()), Effect::Insert("@notes.md".into()),]);
     }
 
     #[test]
@@ -1199,13 +1117,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let src = "def shout(input)\n  args = json_parse(input)\n  upcase(json_get(args, :text))\nend\n";
         let s = script(&dir, src, "shout");
-        let tools = Tools::new(vec![ToolSpec {
-            name: "shout".into(),
-            description: "upper-case".into(),
-            schema: None,
-            read_only: true,
-            script: s,
-        }]);
+        let tools = Tools::new(vec![ToolSpec { name: "shout".into(), description: "upper-case".into(), schema: None, read_only: true, script: s }]);
         assert!(tools.owns("shout") && !tools.owns("Read"));
         assert_eq!(tools.read_only("shout"), Some(true));
         let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
@@ -1399,11 +1311,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
     fn a_segment_that_asks_for_an_effect_is_refused() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("seg")).unwrap();
-        std::fs::write(
-            dir.path().join("seg/seg.b"),
-            "def exports()\n  \"segment s s x\"\nend\ndef s(a)\n  arnes_clear()\n  \"x\"\nend\n",
-        )
-        .unwrap();
+        std::fs::write(dir.path().join("seg/seg.b"), "def exports()\n  \"segment s s x\"\nend\ndef s(a)\n  arnes_clear()\n  \"x\"\nend\n").unwrap();
         let path = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::default());
         let (reg, refused) = bidamas::Registry::load(&path, &["seg".to_owned()]);
         assert!(refused.is_empty(), "{refused:?}");
@@ -1588,11 +1496,8 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
     fn a_theme_bidama_exports_color_rows() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("umi")).unwrap();
-        std::fs::write(
-            dir.path().join("umi/umi.b"),
-            "use(\"yushutsu\", [:render])\ndef exports()\n  render([[\"color\", \"accent\", \"#00aaff\"], [\"color\", \"border\", \"#333333\"]])\nend\n",
-        )
-        .unwrap();
+        std::fs::write(dir.path().join("umi/umi.b"), "use(\"yushutsu\", [:render])\ndef exports()\n  render([[\"color\", \"accent\", \"#00aaff\"], [\"color\", \"border\", \"#333333\"]])\nend\n")
+            .unwrap();
         let path = bidamas::BidamaPath::new(vec![dir.path().to_path_buf()], blue_lang_pkg::load_path::LoadPath::default());
         let (reg, refused) = bidamas::Registry::load(&path, &["umi".to_owned()]);
         assert!(refused.is_empty(), "{refused:?}");

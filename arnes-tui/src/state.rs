@@ -20,8 +20,7 @@ pub struct ApprovalView {
 }
 
 impl ApprovalView {
-    pub const OPTIONS: [&'static str; 3] =
-        ["Yes", "Yes, and don't ask again for this tool", "No, tell arnes what to do instead (Esc)"];
+    pub const OPTIONS: [&'static str; 3] = ["Yes", "Yes, and don't ask again for this tool", "No, tell arnes what to do instead (Esc)"];
 }
 
 /// How loud a toast is. Each level has its own lifetime: an error stays
@@ -210,12 +209,7 @@ impl UsageView {
         }
         let k = |n: u64| if n >= 1000 { format!("{}.{}k", n / 1000, n % 1000 / 100) } else { n.to_string() };
         let cost = if self.priced { format!("${:.4}", self.cost_usd) } else { "$?".to_owned() };
-        format!(
-            "↑{} {:.0}% cached ↓{} {cost}",
-            k(self.prompt_tokens),
-            self.cache_hit_ratio * 100.0,
-            k(self.output_tokens)
-        )
+        format!("↑{} {:.0}% cached ↓{} {cost}", k(self.prompt_tokens), self.cache_hit_ratio * 100.0, k(self.output_tokens))
     }
 }
 

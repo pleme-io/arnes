@@ -10,15 +10,14 @@
 
 use arnes_core::{ContentBlock, Role};
 use egaku::Rect;
-use egaku_term::crossterm::style::Color;
 use egaku_term::anim;
+use egaku_term::crossterm::style::Color;
 use egaku_term::{Buffer, Style, draw, theme::Palette};
 use std::time::Instant;
 
 use crate::state::TuiState;
 
 pub use crate::chrome::{draw_frame, draw_frame_at};
-
 
 /// One laid-out line of the conversation: styled runs at an indent.
 struct Line {
@@ -44,16 +43,7 @@ fn markdown_lines(text: &str, width: u16, indent: u16, palette: &Palette) -> Vec
         &mojiban::Theme::default(),
     );
     let styles: Vec<Style> = egaku_term::markdown::styles(&doc, palette);
-    doc.rows
-        .iter()
-        .map(|row| Line {
-            spans: row
-                .iter()
-                .map(|sp| (sp.text().to_owned(), styles.get(usize::from(sp.style())).copied().unwrap_or_default()))
-                .collect(),
-            indent,
-        })
-        .collect()
+    doc.rows.iter().map(|row| Line { spans: row.iter().map(|sp| (sp.text().to_owned(), styles.get(usize::from(sp.style())).copied().unwrap_or_default())).collect(), indent }).collect()
 }
 
 fn layout_conversation(state: &TuiState, width: u16, palette: &Palette) -> Vec<Line> {
@@ -74,11 +64,7 @@ fn layout_conversation(state: &TuiState, width: u16, palette: &Palette) -> Vec<L
                 }
                 ContentBlock::ToolUse { name, input, .. } => {
                     let summary = serde_json::to_string(input).unwrap_or_default();
-                    out.push(Line::plain(
-                        format!("● {name} {}", truncate(&summary, body.saturating_sub(4 + name.len()))),
-                        Style::default().fg(palette.warning),
-                        2,
-                    ));
+                    out.push(Line::plain(format!("● {name} {}", truncate(&summary, body.saturating_sub(4 + name.len()))), Style::default().fg(palette.warning), 2));
                 }
                 ContentBlock::ToolResult { content, is_error, .. } if !*is_error && content.contains("\n@@ -") => {
                     // An Edit/Write result carries a unified diff: show it
@@ -111,11 +97,7 @@ fn layout_conversation(state: &TuiState, width: u16, palette: &Palette) -> Vec<L
                     } else {
                         let n = content.lines().count();
                         let first = content.lines().next().unwrap_or("");
-                        out.push(Line::plain(
-                            format!("{marker} {} ({n} lines, Ctrl-O to expand)", truncate(first, body.saturating_sub(30))),
-                            Style::default().fg(color),
-                            2,
-                        ));
+                        out.push(Line::plain(format!("{marker} {} ({n} lines, Ctrl-O to expand)", truncate(first, body.saturating_sub(30))), Style::default().fg(color), 2));
                     }
                 }
                 ContentBlock::Thinking { thinking, .. } => {
@@ -174,10 +156,7 @@ pub(crate) fn draw_conversation(buf: &mut Buffer, r: Rect, state: &TuiState, pal
 /// grammar every list, menu and pane shares — both read from their keymaps.
 #[must_use]
 pub fn help_lines(keymap: &crate::keymap::Keymap, nav: &egaku::NavKeymap) -> Vec<String> {
-    let mut out: Vec<String> = crate::keymap::Action::ALL
-        .iter()
-        .map(|&a| format!("{:<28} {}", keymap.chords_for(a).join(", "), a.name()))
-        .collect();
+    let mut out: Vec<String> = crate::keymap::Action::ALL.iter().map(|&a| format!("{:<28} {}", keymap.chords_for(a).join(", "), a.name())).collect();
     out.push(String::new());
     out.push("lists, menus and panes".to_owned());
     for a in egaku::NavAction::ALL {
@@ -263,18 +242,14 @@ fn role_glyph(role: Role, palette: &Palette) -> (&'static str, Color) {
 }
 
 pub(crate) fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        s.to_string()
-    } else {
-        format!("{}…", s.chars().take(max.saturating_sub(1)).collect::<String>())
-    }
+    if s.chars().count() <= max { s.to_string() } else { format!("{}…", s.chars().take(max.saturating_sub(1)).collect::<String>()) }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arnes_core::{Conversation, Message};
     use crate::keymap::Keymap;
+    use arnes_core::{Conversation, Message};
 
     fn screen(buf: &Buffer) -> String {
         let mut out = String::new();
@@ -390,11 +365,7 @@ mod tests {
         let mut c = Conversation::default();
         c.push(Message {
             role: Role::User,
-            content: vec![ContentBlock::ToolResult {
-                tool_use_id: "t".into(),
-                content: "edited src/a.rs (1 replacement(s))\n@@ -1,1 +1,1 @@\n-old line\n+new line\n".into(),
-                is_error: false,
-            }],
+            content: vec![ContentBlock::ToolResult { tool_use_id: "t".into(), content: "edited src/a.rs (1 replacement(s))\n@@ -1,1 +1,1 @@\n-old line\n+new line\n".into(), is_error: false }],
         });
         let st = TuiState::new(c, "m");
         let mut buf = Buffer::empty(60, 16);

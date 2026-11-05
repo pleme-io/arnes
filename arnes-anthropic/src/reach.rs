@@ -58,14 +58,7 @@ mod tests {
     use crate::testing::one_shot_server;
 
     fn endpoint(name: &str, url: String, key: Option<&str>, max_bytes: usize) -> Endpoint {
-        Endpoint {
-            name: name.into(),
-            url,
-            key: key.map(|k| Arc::new(cofre_secret::Secret::new(k).unwrap())),
-            auth: Auth::Bearer,
-            timeout: Duration::from_secs(2),
-            max_bytes,
-        }
+        Endpoint { name: name.into(), url, key: key.map(|k| Arc::new(cofre_secret::Secret::new(k).unwrap())), auth: Auth::Bearer, timeout: Duration::from_secs(2), max_bytes }
     }
 
     fn call(endpoints: Vec<Endpoint>, name: &str, body: &str) -> Result<serde_json::Value, String> {

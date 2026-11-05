@@ -211,10 +211,7 @@ impl Keymap {
     pub fn from_rows(rows: &[(&str, Action)]) -> Result<Self, String> {
         let mut bindings = Vec::with_capacity(rows.len());
         for (chord, action) in rows {
-            let keys = chord
-                .split_whitespace()
-                .map(|k| Hotkey::parse(k).map_err(|e| format!("binding {chord:?}: {e}")))
-                .collect::<Result<Vec<_>, _>>()?;
+            let keys = chord.split_whitespace().map(|k| Hotkey::parse(k).map_err(|e| format!("binding {chord:?}: {e}"))).collect::<Result<Vec<_>, _>>()?;
             bindings.push((keys, *action));
         }
         Ok(Self { bindings, pending: None })
@@ -295,11 +292,7 @@ impl Keymap {
     /// Resolve one key press, advancing chord state.
     pub fn resolve(&mut self, key: Hotkey) -> Resolution {
         if let Some(leader) = self.pending.take() {
-            return self
-                .bindings
-                .iter()
-                .find(|(ks, _)| ks.len() == 2 && ks[0] == leader && ks[1] == key)
-                .map_or(Resolution::Unbound, |(_, a)| Resolution::Action(*a));
+            return self.bindings.iter().find(|(ks, _)| ks.len() == 2 && ks[0] == leader && ks[1] == key).map_or(Resolution::Unbound, |(_, a)| Resolution::Action(*a));
         }
         if let Some((_, a)) = self.bindings.iter().find(|(ks, _)| ks.len() == 1 && ks[0] == key) {
             return Resolution::Action(*a);
@@ -325,11 +318,7 @@ impl Keymap {
     /// Every chord bound to `action`, rendered — for the help panel.
     #[must_use]
     pub fn chords_for(&self, action: Action) -> Vec<String> {
-        self.bindings
-            .iter()
-            .filter(|(_, a)| *a == action)
-            .map(|(ks, _)| ks.iter().map(Hotkey::display).collect::<Vec<_>>().join(" "))
-            .collect()
+        self.bindings.iter().filter(|(_, a)| *a == action).map(|(ks, _)| ks.iter().map(Hotkey::display).collect::<Vec<_>>().join(" ")).collect()
     }
 }
 
@@ -344,12 +333,7 @@ mod tests {
     #[test]
     fn edits_rebind_and_unbind_and_refuse_alone() {
         let edits = arnes_config::KeyEdits {
-            bind: vec![
-                ("ctrl+q".into(), "app:exit".into()),
-                ("ctrl+z".into(), "no:such".into()),
-                ("enter".into(), "chat:newline".into()),
-                ("ctrl+nope".into(), "app:exit".into()),
-            ],
+            bind: vec![("ctrl+q".into(), "app:exit".into()), ("ctrl+z".into(), "no:such".into()), ("enter".into(), "chat:newline".into()), ("ctrl+nope".into(), "app:exit".into())],
             unbind: vec!["ctrl+d".into(), "f13".into()],
         };
         let (mut k, refused) = Keymap::claude_code().with_edits(&edits);
@@ -369,11 +353,7 @@ mod tests {
     fn every_action_has_a_default_binding() {
         // The parity matrix's floor: an Action nobody can reach is a bug.
         for a in Action::ALL {
-            assert!(
-                DEFAULT_BINDINGS.iter().any(|(_, b)| *b == a),
-                "{} has no default binding",
-                a.name()
-            );
+            assert!(DEFAULT_BINDINGS.iter().any(|(_, b)| *b == a), "{} has no default binding", a.name());
         }
     }
 

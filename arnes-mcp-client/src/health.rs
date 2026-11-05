@@ -55,7 +55,9 @@ pub enum State {
     Up,
     Down,
     /// Flapping: not probed until the instant.
-    Quarantined { until: Instant },
+    Quarantined {
+        until: Instant,
+    },
 }
 
 /// What an observation changed, for the caller to say.
@@ -232,10 +234,12 @@ mod tests {
         let mut h = Health::new("a", t);
         assert_eq!(h.observe(true, t, &p()), Change::CameUp);
         assert_eq!(h.interval, Duration::from_secs(15));
-        let seen: Vec<u64> = (0..6).map(|_| {
-            h.observe(true, t, &p());
-            h.interval.as_secs()
-        }).collect();
+        let seen: Vec<u64> = (0..6)
+            .map(|_| {
+                h.observe(true, t, &p());
+                h.interval.as_secs()
+            })
+            .collect();
         assert_eq!(seen, [30, 60, 120, 240, 300, 300]);
         assert!(!h.is_due(t + Duration::from_secs(299)) && h.is_due(t + Duration::from_secs(300)));
     }
@@ -247,10 +251,12 @@ mod tests {
         h.observe(true, t, &p());
         assert_eq!(h.observe(false, t, &p()), Change::WentDown);
         assert_eq!(h.interval, Duration::from_secs(2));
-        let seen: Vec<u64> = (0..8).map(|_| {
-            h.observe(false, t, &p());
-            h.interval.as_secs()
-        }).collect();
+        let seen: Vec<u64> = (0..8)
+            .map(|_| {
+                h.observe(false, t, &p());
+                h.interval.as_secs()
+            })
+            .collect();
         assert_eq!(seen, [4, 8, 16, 32, 64, 120, 120, 120]);
         assert_eq!(h.streak, 9);
     }

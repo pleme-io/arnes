@@ -31,9 +31,7 @@ fn screen(buf: &Buffer) -> String {
 
 fn find(buf: &Buffer, needle: &str) -> Option<(u16, u16)> {
     let s = screen(buf);
-    s.lines().enumerate().find_map(|(y, l)| {
-        l.find(needle).map(|b| (u16::try_from(l[..b].chars().count()).unwrap(), u16::try_from(y).unwrap()))
-    })
+    s.lines().enumerate().find_map(|(y, l)| l.find(needle).map(|b| (u16::try_from(l[..b].chars().count()).unwrap(), u16::try_from(y).unwrap())))
 }
 
 fn settled(st: &mut TuiState, t0: Instant) {
@@ -119,10 +117,7 @@ fn the_history_picker_claims_the_picker_rows_at_every_size() {
     let recalled = ["cargo test -p arnes-tui", "a prompt\nover two lines", "git status"]
         .iter()
         .enumerate()
-        .map(|(n, t)| arnes_store::history::Recalled {
-            entry: arnes_store::history::Entry { at: i64::try_from(n).unwrap(), cwd: "/r".into(), text: (*t).into() },
-            here: true,
-        })
+        .map(|(n, t)| arnes_store::history::Recalled { entry: arnes_store::history::Entry { at: i64::try_from(n).unwrap(), cwd: "/r".into(), text: (*t).into() }, here: true })
         .collect();
     st.input.load_history(recalled, true);
     st.input.open_history_picker(10);

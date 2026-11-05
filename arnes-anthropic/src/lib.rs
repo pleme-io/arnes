@@ -8,9 +8,7 @@
 pub mod catalog;
 pub mod reach;
 
-use arnes_core::{
-    ContentBlock, Conversation, EchoRule, Message, Role, StopReason, ThinkingMode, Tool, Usage,
-};
+use arnes_core::{ContentBlock, Conversation, EchoRule, Message, Role, StopReason, ThinkingMode, Tool, Usage};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -37,12 +35,7 @@ impl AnthropicError {
         match self {
             Self::Http(_) | Self::MissingKey => true,
             Self::Api { status, .. } => {
-                *status == 402
-                    || is_transient(*status)
-                    || matches!(
-                        handan::judge(*status, None).verdict(),
-                        handan::Verdict::Unauthorized | handan::Verdict::Throttled | handan::Verdict::ServerError
-                    )
+                *status == 402 || is_transient(*status) || matches!(handan::judge(*status, None).verdict(), handan::Verdict::Unauthorized | handan::Verdict::Throttled | handan::Verdict::ServerError)
             }
             Self::Json(_) => false,
         }
@@ -66,9 +59,7 @@ impl AnthropicError {
     pub fn brief(&self) -> String {
         match self {
             Self::Api { status, body } => {
-                let message = serde_json::from_str::<serde_json::Value>(body).ok().and_then(|v| {
-                    v.pointer("/error/message").and_then(serde_json::Value::as_str).map(str::to_owned)
-                });
+                let message = serde_json::from_str::<serde_json::Value>(body).ok().and_then(|v| v.pointer("/error/message").and_then(serde_json::Value::as_str).map(str::to_owned));
                 // DeepSeek appends "(request_id: …)" to the message; keep the words.
                 let message = message.map_or_else(|| body.chars().take(60).collect(), |m| m.split(" (request_id").next().unwrap_or(&m).trim().to_owned());
                 format!("{status} {message}")
@@ -243,14 +234,9 @@ impl AnthropicClient {
 
     #[must_use]
     pub fn health(&self) -> Vec<(String, String, u64)> {
-        self.health.lock().map_or_else(
-            |_| Vec::new(),
-            |h| {
-                h.iter()
-                    .map(|(label, (verdict, at))| (label.clone(), verdict.clone(), u64::try_from(at.elapsed().as_millis()).unwrap_or(u64::MAX)))
-                    .collect()
-            },
-        )
+        self.health
+            .lock()
+            .map_or_else(|_| Vec::new(), |h| h.iter().map(|(label, (verdict, at))| (label.clone(), verdict.clone(), u64::try_from(at.elapsed().as_millis()).unwrap_or(u64::MAX))).collect())
     }
 
     #[must_use]
@@ -301,11 +287,7 @@ impl AnthropicClient {
 
     fn body(&self, conv: &Conversation, tools: &[Tool], model: &str) -> MessagesRequest {
         let p = &self.params;
-        let messages = if p.echo.echoes(!tools.is_empty()) {
-            conv.messages.clone()
-        } else {
-            strip_thinking(&conv.messages)
-        };
+        let messages = if p.echo.echoes(!tools.is_empty()) { conv.messages.clone() } else { strip_thinking(&conv.messages) };
         MessagesRequest {
             model: model.to_string(),
             messages,
@@ -323,9 +305,7 @@ impl AnthropicClient {
             thinking: match p.thinking {
                 ThinkingMode::ProviderDefault => None,
                 ThinkingMode::Off => Some(ThinkingParam { kind: "disabled", budget_tokens: None }),
-                ThinkingMode::On { budget, .. } => {
-                    Some(ThinkingParam { kind: "enabled", budget_tokens: budget })
-                }
+                ThinkingMode::On { budget, .. } => Some(ThinkingParam { kind: "enabled", budget_tokens: budget }),
             },
             output_config: match p.thinking {
                 ThinkingMode::On { effort: Some(e), .. } => Some(OutputConfig { effort: e.name() }),
@@ -419,11 +399,7 @@ impl AnthropicClient {
         let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
         let mut attempt = 0u32;
         loop {
-            let mut req = self
-                .client
-                .post(&url)
-                .header("anthropic-version", &self.api_version)
-                .header("content-type", "application/json");
+            let mut req = self.client.post(&url).header("anthropic-version", &self.api_version).header("content-type", "application/json");
             if let Some(key) = &self.api_key {
                 req = match self.auth {
                     catalog::Auth::XApiKey => req.header("x-api-key", key.expose()),
@@ -435,28 +411,19 @@ impl AnthropicClient {
             }
             let resp = req.json(&body).send().await?;
             let status = resp.status();
-            let retry_after = resp
-                .headers()
-                .get("retry-after")
-                .and_then(|v| v.to_str().ok())
-                .and_then(handan::parse_retry_after)
-                .map(handan::RetryAdvice::delay_now);
+            let retry_after = resp.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(handan::parse_retry_after).map(handan::RetryAdvice::delay_now);
             let text = resp.text().await?;
             if status.is_success() {
                 return Ok(serde_json::from_str(&text)?);
             }
             if attempt < self.params.max_retries && is_transient(status.as_u16()) {
-                let backoff = retry_after
-                    .unwrap_or_else(|| self.params.retry_base.saturating_mul(1 << attempt.min(16)));
+                let backoff = retry_after.unwrap_or_else(|| self.params.retry_base.saturating_mul(1 << attempt.min(16)));
                 tracing::warn!(status = status.as_u16(), attempt, ?backoff, "retrying");
                 tokio::time::sleep(backoff).await;
                 attempt += 1;
                 continue;
             }
-            return Err(AnthropicError::Api {
-                status: status.as_u16(),
-                body: text,
-            });
+            return Err(AnthropicError::Api { status: status.as_u16(), body: text });
         }
     }
 }
@@ -470,17 +437,7 @@ pub const fn is_transient(status: u16) -> bool {
 fn strip_thinking(messages: &[Message]) -> Vec<Message> {
     messages
         .iter()
-        .map(|m| Message {
-            role: m.role,
-            content: m
-                .content
-                .iter()
-                .filter(|b| {
-                    !matches!(b, ContentBlock::Thinking { .. } | ContentBlock::RedactedThinking { .. })
-                })
-                .cloned()
-                .collect(),
-        })
+        .map(|m| Message { role: m.role, content: m.content.iter().filter(|b| !matches!(b, ContentBlock::Thinking { .. } | ContentBlock::RedactedThinking { .. })).cloned().collect() })
         .filter(|m| !m.content.is_empty())
         .collect()
 }
@@ -541,10 +498,7 @@ impl MessagesResponse {
     /// Lift the response into a full `Message` the conversation can append.
     #[must_use]
     pub fn to_message(&self) -> Message {
-        Message {
-            role: self.role,
-            content: self.content.clone(),
-        }
+        Message { role: self.role, content: self.content.clone() }
     }
 
     /// Return every tool use the assistant requested this turn.
@@ -553,9 +507,7 @@ impl MessagesResponse {
         self.content
             .iter()
             .filter_map(|c| match c {
-                ContentBlock::ToolUse { id, name, input } => {
-                    Some((id.clone(), name.clone(), input.clone()))
-                }
+                ContentBlock::ToolUse { id, name, input } => Some((id.clone(), name.clone(), input.clone())),
                 _ => None,
             })
             .collect()
@@ -595,10 +547,7 @@ pub mod testing {
             }
             let mut sink = vec![0u8; length];
             reader.read_exact(&mut sink).unwrap();
-            let reply = format!(
-                "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
-                body.len()
-            );
+            let reply = format!("HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
             stream.write_all(reply.as_bytes()).unwrap();
             // The request's head, a blank line, then its body.
             format!("{head}\r\n{}", String::from_utf8_lossy(&sink))
@@ -655,16 +604,7 @@ mod tests {
             kind: "message".into(),
             role: Role::Assistant,
             model: "claude-sonnet-4-6".into(),
-            content: vec![
-                ContentBlock::Text {
-                    text: "I'll read that.".into(),
-                },
-                ContentBlock::ToolUse {
-                    id: "t1".into(),
-                    name: "read_file".into(),
-                    input: serde_json::json!({ "path": "/tmp/x" }),
-                },
-            ],
+            content: vec![ContentBlock::Text { text: "I'll read that.".into() }, ContentBlock::ToolUse { id: "t1".into(), name: "read_file".into(), input: serde_json::json!({ "path": "/tmp/x" }) }],
             stop_reason: Some(StopReason::ToolUse),
             stop_sequence: None,
             usage: Usage::default(),
@@ -717,21 +657,10 @@ mod tests {
     #[test]
     fn thinking_echo_follows_rule_and_tool_presence() {
         let mut conv = Conversation::new(arnes_core::ConversationId(1), "deepseek-flash");
-        conv.messages.push(Message {
-            role: arnes_core::Role::Assistant,
-            content: vec![
-                ContentBlock::Thinking { thinking: "t".into(), signature: None },
-                ContentBlock::Text { text: "a".into() },
-            ],
-        });
-        let tool = Tool {
-            name: "read".into(),
-            description: "d".into(),
-            input_schema: arnes_core::ToolInputSchema(serde_json::json!({"type": "object"})),
-        };
+        conv.messages.push(Message { role: arnes_core::Role::Assistant, content: vec![ContentBlock::Thinking { thinking: "t".into(), signature: None }, ContentBlock::Text { text: "a".into() }] });
+        let tool = Tool { name: "read".into(), description: "d".into(), input_schema: arnes_core::ToolInputSchema(serde_json::json!({"type": "object"})) };
         for rule in EchoRule::ALL {
-            let c = AnthropicClient::with_key(key("k"))
-                .with_params(RequestParams { echo: rule, ..RequestParams::default() });
+            let c = AnthropicClient::with_key(key("k")).with_params(RequestParams { echo: rule, ..RequestParams::default() });
             for tools in [vec![], vec![tool.clone()]] {
                 let kept = c.body(&conv, &tools, &conv.model).messages[0].content.len() == 2;
                 assert_eq!(kept, rule.echoes(!tools.is_empty()), "{rule:?} tools={}", tools.len());
@@ -741,8 +670,7 @@ mod tests {
 
     #[test]
     fn thinking_off_is_explicitly_disabled_on_the_wire() {
-        let c = AnthropicClient::with_key(key("k"))
-            .with_params(RequestParams { thinking: ThinkingMode::Off, ..RequestParams::default() });
+        let c = AnthropicClient::with_key(key("k")).with_params(RequestParams { thinking: ThinkingMode::Off, ..RequestParams::default() });
         let conv = Conversation::new(arnes_core::ConversationId(1), "deepseek-flash");
         let v = serde_json::to_value(c.body(&conv, &[], &conv.model)).unwrap();
         assert_eq!(v["thinking"]["type"], "disabled");
@@ -777,16 +705,12 @@ mod tests {
     #[tokio::test]
     async fn an_unreachable_primary_hands_the_turn_to_the_fallback() {
         let (local, served) = one_shot_server("200 OK", LOCAL_REPLY);
-        let client = AnthropicClient::with_key(key("sk-primary"))
-            .with_base_url(refused_url())
-            .with_label("deepseek")
-            .with_provider("deepseek")
-            .with_fallbacks(vec![Fallback {
-                label: "local".into(),
-                model: "local".into(),
-                client: AnthropicClient::new(None).with_base_url(local).with_provider("local"),
-                tools: true,
-            }]);
+        let client = AnthropicClient::with_key(key("sk-primary")).with_base_url(refused_url()).with_label("deepseek").with_provider("deepseek").with_fallbacks(vec![Fallback {
+            label: "local".into(),
+            model: "local".into(),
+            client: AnthropicClient::new(None).with_base_url(local).with_provider("local"),
+            tools: true,
+        }]);
         let conv = Conversation::new(arnes_core::ConversationId(1), "deepseek-flash");
         let resp = client.send(&conv, &[]).await.unwrap();
         assert_eq!(resp.model, "local");
@@ -796,11 +720,7 @@ mod tests {
         assert_eq!((s.label.as_str(), s.model.as_str(), s.fallback, s.provider.as_str()), ("local", "local", true, "local"));
         let mut health = client.health();
         health.sort();
-        assert_eq!(
-            health.iter().map(|(l, v, _)| (l.as_str(), v.as_str())).collect::<Vec<_>>(),
-            [("deepseek", "unreachable"), ("local", "success")],
-            "every route tried carries its verdict"
-        );
+        assert_eq!(health.iter().map(|(l, v, _)| (l.as_str(), v.as_str())).collect::<Vec<_>>(), [("deepseek", "unreachable"), ("local", "success")], "every route tried carries its verdict");
     }
 
     #[tokio::test]
@@ -812,11 +732,7 @@ mod tests {
             client: AnthropicClient::new(None).with_base_url(local),
             tools: false,
         }]);
-        let tool = Tool {
-            name: "read".into(),
-            description: "d".into(),
-            input_schema: arnes_core::ToolInputSchema(serde_json::json!({"type": "object"})),
-        };
+        let tool = Tool { name: "read".into(), description: "d".into(), input_schema: arnes_core::ToolInputSchema(serde_json::json!({"type": "object"})) };
         let conv = Conversation::new(arnes_core::ConversationId(1), "deepseek-flash");
         client.send(&conv, &[tool]).await.unwrap();
         let request = served.join().unwrap();
@@ -841,11 +757,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_primary_with_tools_off_is_sent_none() {
-        let tool = || Tool {
-            name: "read".into(),
-            description: "d".into(),
-            input_schema: arnes_core::ToolInputSchema(serde_json::json!({"type": "object"})),
-        };
+        let tool = || Tool { name: "read".into(), description: "d".into(), input_schema: arnes_core::ToolInputSchema(serde_json::json!({"type": "object"})) };
         let conv = Conversation::new(arnes_core::ConversationId(1), "apple-on-device");
         let (url, served) = one_shot_server("200 OK", LOCAL_REPLY);
         AnthropicClient::new(None).with_base_url(url).with_tools(false).send(&conv, &[tool()]).await.unwrap();

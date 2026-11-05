@@ -79,9 +79,7 @@ impl Totals {
     #[must_use]
     pub fn cache_hit_ratio(&self) -> f64 {
         let hit = f64::from(self.usage.cache_read_input_tokens.unwrap_or(0));
-        let all = hit
-            + f64::from(self.usage.input_tokens)
-            + f64::from(self.usage.cache_creation_input_tokens.unwrap_or(0));
+        let all = hit + f64::from(self.usage.input_tokens) + f64::from(self.usage.cache_creation_input_tokens.unwrap_or(0));
         if all == 0.0 { 0.0 } else { hit / all }
     }
 }
@@ -105,12 +103,7 @@ impl Ledger {
     #[must_use]
     pub fn new(path: Option<PathBuf>) -> Self {
         let session = format!("{}-{}", Utc::now().format("%Y%m%dT%H%M%S"), std::process::id());
-        Self {
-            path,
-            session,
-            totals: Mutex::new(Totals { all_priced: true, ..Totals::default() }),
-            prices: Mutex::new(HashMap::new()),
-        }
+        Self { path, session, totals: Mutex::new(Totals { all_priced: true, ..Totals::default() }), prices: Mutex::new(HashMap::new()) }
     }
 
     pub fn set_prices(&self, prices: HashMap<String, Price>) {
@@ -165,15 +158,7 @@ impl Ledger {
         dim("route", served.label.clone());
         dim("fallback", served.fallback.to_string());
         dim("latency_ms", served.latency_ms.to_string());
-        let event = Event {
-            ts: now,
-            cost_usd,
-            cloud: served.provider.clone(),
-            service: model.to_owned(),
-            region: None,
-            resource_id: Some(self.session.clone()),
-            dimensions,
-        };
+        let event = Event { ts: now, cost_usd, cloud: served.provider.clone(), service: model.to_owned(), region: None, resource_id: Some(self.session.clone()), dimensions };
         let line = match serde_json::to_string(&event) {
             Ok(l) => l,
             Err(e) => {
@@ -184,11 +169,7 @@ impl Ledger {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        let written = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-            .and_then(|mut f| writeln!(f, "{line}"));
+        let written = std::fs::OpenOptions::new().create(true).append(true).open(path).and_then(|mut f| writeln!(f, "{line}"));
         if let Err(e) = written {
             tracing::warn!(error = %e, path = %path.display(), "ledger: append failed");
         }
@@ -216,12 +197,7 @@ mod tests {
 
     #[test]
     fn cost_uses_hit_miss_and_output_rates() {
-        let u = Usage {
-            input_tokens: 1_000_000,
-            output_tokens: 1_000_000,
-            cache_read_input_tokens: Some(1_000_000),
-            cache_creation_input_tokens: None,
-        };
+        let u = Usage { input_tokens: 1_000_000, output_tokens: 1_000_000, cache_read_input_tokens: Some(1_000_000), cache_creation_input_tokens: None };
         let p = price("deepseek", "deepseek-flash", true).unwrap();
         assert!((cost(&u, p) - (0.006 + 0.30 + 1.20)).abs() < 1e-9);
         let off = price("deepseek", "deepseek-flash", false).unwrap();
@@ -260,10 +236,7 @@ mod tests {
 
     #[test]
     fn hit_ratio() {
-        let t = Totals {
-            usage: Usage { input_tokens: 20, output_tokens: 5, cache_read_input_tokens: Some(80), cache_creation_input_tokens: None },
-            ..Totals::default()
-        };
+        let t = Totals { usage: Usage { input_tokens: 20, output_tokens: 5, cache_read_input_tokens: Some(80), cache_creation_input_tokens: None }, ..Totals::default() };
         assert!((t.cache_hit_ratio() - 0.8).abs() < 1e-9);
         assert_eq!(Totals::default().cache_hit_ratio(), 0.0);
     }

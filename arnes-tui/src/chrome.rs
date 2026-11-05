@@ -125,10 +125,8 @@ fn draw_approval(buf: &mut Buffer, area: Region, a: &crate::state::ApprovalView,
     let edge = Palette { accent: palette.warning, ..*palette };
     draw::bordered_block_with(buf, area.rect(), " approve? ", true, &edge);
     let (ix, iy, iw, ih) = inner_cells(draw::block_inner(area.rect()));
-    let mut lines: Vec<(String, Style, bool)> = vec![
-        (a.tool.clone(), Style::default().fg(palette.foreground).bold(), false),
-        (truncate(&a.input, usize::from(iw).saturating_sub(2)), Style::default().fg(palette.muted), false),
-    ];
+    let mut lines: Vec<(String, Style, bool)> =
+        vec![(a.tool.clone(), Style::default().fg(palette.foreground).bold(), false), (truncate(&a.input, usize::from(iw).saturating_sub(2)), Style::default().fg(palette.muted), false)];
     if let Some(w) = &a.warning {
         lines.push((format!("\u{25b2} {}", truncate(w, usize::from(iw).saturating_sub(4))), Style::default().fg(palette.warning), false));
     }
@@ -173,11 +171,7 @@ fn draw_notices(buf: &mut Buffer, area: Region, state: &TuiState, palette: &Pale
     for (row, t) in (0..area.h).zip(&live[live.len() - shown..]) {
         let y = area.y + row;
         let color = level_color(t.level, palette);
-        let (arrive, fade) = if state.motion {
-            (opened(t.born, now, Timing::toast_in()), ((t.age(now) - 0.7) / 0.3).clamp(0.0, 1.0))
-        } else {
-            (1.0, if t.age(now) > 0.7 { 1.0 } else { 0.0 })
-        };
+        let (arrive, fade) = if state.motion { (opened(t.born, now, Timing::toast_in()), ((t.age(now) - 0.7) / 0.3).clamp(0.0, 1.0)) } else { (1.0, if t.age(now) > 0.7 { 1.0 } else { 0.0 }) };
         let color = blend(color, palette.muted, fade);
         let count = if t.count > 1 { format!(" \u{d7}{}", t.count) } else { String::new() };
         let more = if row == 0 && hidden > 0 { format!("  +{hidden} more \u{b7} /notices") } else { String::new() };
@@ -244,16 +238,13 @@ fn draw_activity(buf: &mut Buffer, area: Region, state: &TuiState, palette: &Pal
     }
     // The transient on the right: an approval answer, a fallback, or the
     // last tool's tick, flashing on arrival then settling to muted.
-    let right: Option<(String, Color, Instant)> = act
-        .current_note(now)
-        .map(|(s, good, t)| (s.to_owned(), if good { palette.success } else { palette.warning }, t))
-        .or_else(|| {
-            act.current_tick(now).map(|t| {
-                let (tool, _) = crate::activity::tool_label(&t.name);
-                let mark = if t.ok { "\u{2713}" } else { "\u{2717}" };
-                (format!("{mark} {tool} {}", crate::activity::clock(t.took)), if t.ok { palette.success } else { palette.error }, t.at)
-            })
-        });
+    let right: Option<(String, Color, Instant)> = act.current_note(now).map(|(s, good, t)| (s.to_owned(), if good { palette.success } else { palette.warning }, t)).or_else(|| {
+        act.current_tick(now).map(|t| {
+            let (tool, _) = crate::activity::tool_label(&t.name);
+            let mark = if t.ok { "\u{2713}" } else { "\u{2717}" };
+            (format!("{mark} {tool} {}", crate::activity::clock(t.took)), if t.ok { palette.success } else { palette.error }, t.at)
+        })
+    });
     if let Some((text, color, at)) = right {
         let flash = if state.motion { 1.0 - opened(at, now, Timing::fast()) } else { 0.0 };
         let settle = if state.motion { opened(at, now, state.spec.hold) } else { 0.0 };
@@ -391,11 +382,7 @@ fn draw_mcp(buf: &mut Buffer, r: egaku::Rect, b: &crate::mcp_browser::McpBrowser
     if rows.len() > usize::from(body) {
         let pos = format!(" {}/{} ", (offset + usize::from(body)).min(rows.len()), rows.len());
         let w = u16::try_from(pos.chars().count()).unwrap_or(0);
-        let lit = if state.motion {
-            state.blips.at(Blip::Scroll).map_or(0.0, |t| 1.0 - opened(t, now, state.spec.hold))
-        } else {
-            0.0
-        };
+        let lit = if state.motion { state.blips.at(Blip::Scroll).map_or(0.0, |t| 1.0 - opened(t, now, state.spec.hold)) } else { 0.0 };
         buf.set_stringn(ix + iw.saturating_sub(w + 1), iy + body, &pos, w, Style::default().fg(blend(palette.muted, palette.accent, lit)));
     }
     buf.set_stringn(ix + 1, iy + body, &b.footer(), iw.saturating_sub(12), Style::default().fg(palette.muted));

@@ -90,11 +90,7 @@ fn lisp_str(s: &str) -> String {
 /// health from the store instead of probing.
 #[must_use]
 pub fn program(script: &Script) -> String {
-    format!(
-        "(vigy-emit \"noop\" (arnes-blue {} {}))\n(vigy-emit \"pull\" (arnes-mcp-facts))",
-        lisp_str(&arnes_blue::expand_home(&script.path).display().to_string()),
-        lisp_str(&script.function)
-    )
+    format!("(vigy-emit \"noop\" (arnes-blue {} {}))\n(vigy-emit \"pull\" (arnes-mcp-facts))", lisp_str(&arnes_blue::expand_home(&script.path).display().to_string()), lisp_str(&script.function))
 }
 
 /// The `arnes` extension: `(arnes-blue path fn)` runs a blue function with
@@ -104,9 +100,7 @@ pub fn program(script: &Script) -> String {
 pub fn extension(facts: Facts) -> vigy_eval::ExtensionHandle {
     vigy_eval::closure_extension(move |interp: &mut tatara_lisp_eval::Interpreter<VigyHost>| {
         let f = facts.clone();
-        interp.register_fn("arnes-mcp-facts", Arity::Exact(0), move |_: &[Value], _: &mut VigyHost, _| {
-            Ok(Value::Str(f.json().into()))
-        });
+        interp.register_fn("arnes-mcp-facts", Arity::Exact(0), move |_: &[Value], _: &mut VigyHost, _| Ok(Value::Str(f.json().into())));
         let f = facts.clone();
         interp.register_fn("arnes-blue", Arity::Exact(2), move |args: &[Value], _: &mut VigyHost, span| {
             let text = |i: usize| match args.get(i) {
@@ -115,8 +109,7 @@ pub fn extension(facts: Facts) -> vigy_eval::ExtensionHandle {
             };
             let script = Script::new(text(0)?, text(1)?);
             let facts = f.json();
-            let out = arnes_blue::invoke("vigy", &script, &[&facts], "")
-                .map_err(|e| EvalError::native_fn("arnes-blue", e.to_string(), span))?;
+            let out = arnes_blue::invoke("vigy", &script, &[&facts], "").map_err(|e| EvalError::native_fn("arnes-blue", e.to_string(), span))?;
             Ok(Value::Str(out.text().to_owned().into()))
         });
     })
@@ -147,19 +140,13 @@ impl Status {
 /// The text a successful tick recorded.
 #[must_use]
 pub fn summary(run: &VigyRun) -> Option<String> {
-    run.actions
-        .iter()
-        .filter(|a| a.kind == vigy_types::ReconcileKind::Noop)
-        .find_map(|a| a.payload.as_ref()?.as_str().map(str::to_owned))
+    run.actions.iter().filter(|a| a.kind == vigy_types::ReconcileKind::Noop).find_map(|a| a.payload.as_ref()?.as_str().map(str::to_owned))
 }
 
 /// The probe facts a tick recorded, if it recorded any.
 #[must_use]
 pub fn recorded_facts(run: &VigyRun) -> Option<Vec<Probe>> {
-    run.actions
-        .iter()
-        .filter(|a| a.kind == vigy_types::ReconcileKind::Pull)
-        .find_map(|a| serde_json::from_str(a.payload.as_ref()?.as_str()?).ok())
+    run.actions.iter().filter(|a| a.kind == vigy_types::ReconcileKind::Pull).find_map(|a| serde_json::from_str(a.payload.as_ref()?.as_str()?).ok())
 }
 
 /// Facts read back from the store, and how old they are.
@@ -175,11 +162,7 @@ impl Health {
     pub fn line(&self, server: &str) -> Option<String> {
         let p = self.probes.iter().find(|p| p.server == server)?;
         let ago = format!("{}s ago", self.age.as_secs());
-        Some(if p.up {
-            format!("up {}ms, {} tools, {ago}", p.latency_ms.unwrap_or(0), p.tools)
-        } else {
-            format!("down: {}, {ago}", p.error.as_deref().unwrap_or("no answer"))
-        })
+        Some(if p.up { format!("up {}ms, {} tools, {ago}", p.latency_ms.unwrap_or(0), p.tools) } else { format!("down: {}, {ago}", p.error.as_deref().unwrap_or("no answer")) })
     }
 }
 
@@ -241,10 +224,8 @@ impl Ticking {
         let mut refused = Vec::new();
         for d in decls {
             let every = u64::try_from(d.every.as_millis()).unwrap_or(u64::MAX);
-            let built = TickInterval::from_millis(every)
-                .map_err(|e| e.to_string())
-                .and_then(|i| Vigy::new(format!("arnes/{}", d.name), program(&d.script), i).map_err(|e| e.to_string()))
-                .and_then(|mut v| {
+            let built =
+                TickInterval::from_millis(every).map_err(|e| e.to_string()).and_then(|i| Vigy::new(format!("arnes/{}", d.name), program(&d.script), i).map_err(|e| e.to_string())).and_then(|mut v| {
                     v.labels.insert(HOST_LABEL, HOST).map_err(|e| e.to_string())?;
                     Ok(v)
                 });
@@ -335,10 +316,7 @@ mod tests {
     #[test]
     fn program_escapes_its_strings() {
         let s = Script::new("/a \"b\"\\c.b", "tick");
-        assert_eq!(
-            program(&s),
-            "(vigy-emit \"noop\" (arnes-blue \"/a \\\"b\\\"\\\\c.b\" \"tick\"))\n(vigy-emit \"pull\" (arnes-mcp-facts))"
-        );
+        assert_eq!(program(&s), "(vigy-emit \"noop\" (arnes-blue \"/a \\\"b\\\"\\\\c.b\" \"tick\"))\n(vigy-emit \"pull\" (arnes-mcp-facts))");
     }
 
     #[test]
@@ -449,9 +427,7 @@ impl Lease {
     }
 
     fn now_ms() -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
     }
 
     /// Whether another process saw `fingerprint` healthy within `within`.

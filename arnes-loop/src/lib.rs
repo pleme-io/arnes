@@ -64,25 +64,12 @@ impl ToolDispatcher for arnes_mcp_client::McpPool {
 
 /// Run one agentic turn — send the conversation, handle any tool calls,
 /// loop until `stop_reason = end_turn` or `max_turns`.
-pub async fn run_turn<D: ToolDispatcher>(
-    client: &AnthropicClient,
-    conv: &mut Conversation,
-    tools: &[Tool],
-    dispatcher: &D,
-    max_turns: u32,
-) -> Result<Usage> {
+pub async fn run_turn<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Conversation, tools: &[Tool], dispatcher: &D, max_turns: u32) -> Result<Usage> {
     run_turn_recorded(client, conv, tools, dispatcher, max_turns, None).await
 }
 
 /// [`run_turn`], recording every API call in `ledger` as it returns.
-pub async fn run_turn_recorded<D: ToolDispatcher>(
-    client: &AnthropicClient,
-    conv: &mut Conversation,
-    tools: &[Tool],
-    dispatcher: &D,
-    max_turns: u32,
-    ledger: Option<&ledger::Ledger>,
-) -> Result<Usage> {
+pub async fn run_turn_recorded<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Conversation, tools: &[Tool], dispatcher: &D, max_turns: u32, ledger: Option<&ledger::Ledger>) -> Result<Usage> {
     let mut total_usage = Usage::default();
     for turn in 0..max_turns {
         let resp: MessagesResponse = client.send(conv, tools).await?;
@@ -102,25 +89,14 @@ pub async fn run_turn_recorded<D: ToolDispatcher>(
                 let mut result_blocks: Vec<ContentBlock> = Vec::with_capacity(uses.len());
                 for (id, name, input) in uses {
                     match dispatcher.dispatch(&name, &input).await {
-                        Ok(text) => result_blocks.push(ContentBlock::ToolResult {
-                            tool_use_id: id,
-                            content: text,
-                            is_error: false,
-                        }),
+                        Ok(text) => result_blocks.push(ContentBlock::ToolResult { tool_use_id: id, content: text, is_error: false }),
                         Err(e) => {
                             tracing::warn!(tool = %name, error = %e, "tool dispatch failed");
-                            result_blocks.push(ContentBlock::ToolResult {
-                                tool_use_id: id,
-                                content: format!("{e}"),
-                                is_error: true,
-                            });
+                            result_blocks.push(ContentBlock::ToolResult { tool_use_id: id, content: format!("{e}"), is_error: true });
                         }
                     }
                 }
-                conv.push(Message {
-                    role: Role::User,
-                    content: result_blocks,
-                });
+                conv.push(Message { role: Role::User, content: result_blocks });
             }
             // The server paused a long turn; resending the conversation
             // as-is lets it continue.
@@ -132,8 +108,7 @@ pub async fn run_turn_recorded<D: ToolDispatcher>(
                 tracing::warn!(turn, "unknown stop_reason; treating as end of turn");
                 return Ok(total_usage);
             }
-            Some(StopReason::EndTurn | StopReason::MaxTokens | StopReason::StopSequence |
-StopReason::Refusal) | None => {
+            Some(StopReason::EndTurn | StopReason::MaxTokens | StopReason::StopSequence | StopReason::Refusal) | None => {
                 return Ok(total_usage);
             }
         }
@@ -144,14 +119,7 @@ StopReason::Refusal) | None => {
 /// Apply a pre-computed tool result to the conversation — used by UIs
 /// that want to render each step before making the next request.
 pub fn append_tool_result(conv: &mut Conversation, result: ToolResult) {
-    conv.push(Message {
-        role: Role::User,
-        content: vec![ContentBlock::ToolResult {
-            tool_use_id: result.tool_use_id,
-            content: result.content,
-            is_error: result.is_error,
-        }],
-    });
+    conv.push(Message { role: Role::User, content: vec![ContentBlock::ToolResult { tool_use_id: result.tool_use_id, content: result.content, is_error: result.is_error }] });
 }
 
 #[cfg(test)]
@@ -182,10 +150,7 @@ mod tests {
     #[tokio::test]
     async fn fake_dispatcher_returns_canned() {
         let d = FakeDispatcher;
-        let r = d
-            .dispatch("read_file", &serde_json::json!({}))
-            .await
-            .unwrap();
+        let r = d.dispatch("read_file", &serde_json::json!({})).await.unwrap();
         assert_eq!(r, "fake result for read_file");
     }
 }

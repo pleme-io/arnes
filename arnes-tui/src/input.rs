@@ -95,7 +95,10 @@ pub enum Effect {
     /// [`InputState::open_mention_picker`] (I/O stays out of the reducer).
     OpenMentionPicker,
     /// A slash command: `/mode plan` → `{ name: "mode", args: "plan" }`.
-    Command { name: String, args: String },
+    Command {
+        name: String,
+        args: String,
+    },
     /// Leave the live tail and scroll back through the conversation.
     Scrollback,
 }
@@ -246,13 +249,15 @@ impl InputState {
             self.hint = None;
         }
         if self.search.is_some()
-            && let Some(effects) = self.apply_in_search(action) {
-                return effects;
-            }
+            && let Some(effects) = self.apply_in_search(action)
+        {
+            return effects;
+        }
         if self.picker.is_some()
-            && let Some(effects) = self.apply_in_picker(action) {
-                return effects;
-            }
+            && let Some(effects) = self.apply_in_picker(action)
+        {
+            return effects;
+        }
         match action {
             Action::Interrupt => self.interrupt(busy, now),
             Action::Exit => {
@@ -374,14 +379,8 @@ impl InputState {
 
     fn open_command_picker(&mut self) {
         // A hosted or user command of a built-in's name replaces its row.
-        let builtins = COMMANDS
-            .iter()
-            .filter(|(n, _)| !self.user_commands.iter().any(|(u, _)| u == n))
-            .map(|(n, w)| ((*n).to_owned(), (*w).to_owned()));
-        let items = builtins
-            .chain(self.user_commands.iter().cloned())
-            .map(|(name, what)| PickerItem::new(name.clone(), format!("/{name:<8} {what}")))
-            .collect();
+        let builtins = COMMANDS.iter().filter(|(n, _)| !self.user_commands.iter().any(|(u, _)| u == n)).map(|(n, w)| ((*n).to_owned(), (*w).to_owned()));
+        let items = builtins.chain(self.user_commands.iter().cloned()).map(|(name, what)| PickerItem::new(name.clone(), format!("/{name:<8} {what}"))).collect();
         let mut picker = FuzzyPicker::new(items);
         picker.on_event(PickerEvent::Open);
         self.picker = Some(PromptPicker::new(PickerKind::Command, picker, self.nav_filter.as_ref()));
@@ -588,9 +587,11 @@ impl InputState {
 
     fn double_press(&mut self, key: Action, now: Instant, hint: &str) -> Vec<Effect> {
         if let Some((k, t)) = self.armed_exit
-            && k == key && now.duration_since(t) <= DOUBLE_PRESS {
-                return vec![Effect::Exit];
-            }
+            && k == key
+            && now.duration_since(t) <= DOUBLE_PRESS
+        {
+            return vec![Effect::Exit];
+        }
         self.armed_exit = Some((key, now));
         self.hint = Some(hint.into());
         vec![]
@@ -653,10 +654,11 @@ impl InputState {
         }
         // Claude Code: Up from the first row takes back a queued prompt first.
         if self.editor.is_empty()
-            && let Some(q) = self.queued.pop() {
-                self.editor.set_text(&q);
-                return;
-            }
+            && let Some(q) = self.queued.pop()
+        {
+            self.editor.set_text(&q);
+            return;
+        }
         if self.history.is_empty() {
             return;
         }
@@ -699,9 +701,10 @@ impl InputState {
                 let from = self.search.as_ref().and_then(|s| s.hit);
                 let hit = self.find_older(from);
                 if let Some(s) = &mut self.search
-                    && hit.is_some() {
-                        s.hit = hit;
-                    }
+                    && hit.is_some()
+                {
+                    s.hit = hit;
+                }
                 Some(vec![])
             }
             Action::DeleteBack => {
@@ -842,10 +845,7 @@ mod tests {
 
         let mut late = InputState::new();
         late.apply(Action::Interrupt, false, now);
-        assert!(
-            late.apply(Action::Interrupt, false, now + DOUBLE_PRESS + Duration::from_millis(1)).is_empty(),
-            "outside the window a second press only re-arms"
-        );
+        assert!(late.apply(Action::Interrupt, false, now + DOUBLE_PRESS + Duration::from_millis(1)).is_empty(), "outside the window a second press only re-arms");
     }
 
     #[test]

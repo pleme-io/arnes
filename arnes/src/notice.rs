@@ -125,10 +125,6 @@ pub fn init(surface: Surface) -> Receiver<(ToastLevel, String)> {
         std::fs::OpenOptions::new().create(true).append(true).open(p).ok()
     });
     let file_layer = file.map(|f| fmt::layer().with_ansi(false).with_writer(Mutex::new(f)));
-    let _ = tracing_subscriber::registry()
-        .with(filter)
-        .with(file_layer)
-        .with(NoticeLayer { surface })
-        .try_init();
+    let _ = tracing_subscriber::registry().with(filter).with(file_layer).with(NoticeLayer { surface }).try_init();
     rx
 }

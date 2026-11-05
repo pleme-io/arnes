@@ -59,9 +59,7 @@ pub fn salvage<T: Serialize + DeserializeOwned>(base: &T, overlay: &Value) -> (T
     } else if !overlay.is_null() {
         refused.push(format!("the document is not a set of keys (got {overlay}); using defaults"));
     }
-    let value = serde_json::from_value::<T>(root).unwrap_or_else(|_| {
-        serde_json::from_value(serde_json::to_value(base).expect("base serializes")).expect("base round-trips")
-    });
+    let value = serde_json::from_value::<T>(root).unwrap_or_else(|_| serde_json::from_value(serde_json::to_value(base).expect("base serializes")).expect("base round-trips"));
     (value, Refusals(refused))
 }
 
@@ -153,8 +151,7 @@ fn walk(s: &Value, defs: &Value, doc: &Value, path: &mut Vec<String>, out: &mut 
                 if let Some(sub) = props.get(k) {
                     walk(sub, defs, v, path, out);
                 } else {
-                    let hint = shikumi::ConfigCoverage::did_you_mean(k, &known)
-                        .map_or_else(String::new, |m| format!(" (did you mean {m}?)"));
+                    let hint = shikumi::ConfigCoverage::did_you_mean(k, &known).map_or_else(String::new, |m| format!(" (did you mean {m}?)"));
                     out.push(format!("{}: unknown key, ignored{hint}", path.join(".")));
                 }
                 path.pop();

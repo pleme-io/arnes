@@ -24,13 +24,7 @@ impl Recorder {
     /// `None` when there is no state directory to keep sessions in.
     pub fn open(enabled: bool, id: &str, conversation: &Conversation) -> Option<Self> {
         let store = Sessions::new(Layout::from_env()?.sessions_dir());
-        Some(Self {
-            current: Session::new(id, cwd(), conversation.clone(), Utc::now()),
-            store,
-            enabled,
-            base: id.to_owned(),
-            restarts: 0,
-        })
+        Some(Self { current: Session::new(id, cwd(), conversation.clone(), Utc::now()), store, enabled, base: id.to_owned(), restarts: 0 })
     }
 
     /// Save `conversation` as the current session. An empty one is not

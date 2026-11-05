@@ -45,13 +45,7 @@ pub struct Conversation {
 impl Conversation {
     #[must_use]
     pub fn new(id: ConversationId, model: impl Into<String>) -> Self {
-        Self {
-            id,
-            system: None,
-            messages: Vec::new(),
-            model: model.into(),
-            max_tokens: Some(crate::DEFAULT_MAX_TOKENS),
-        }
+        Self { id, system: None, messages: Vec::new(), model: model.into(), max_tokens: Some(crate::DEFAULT_MAX_TOKENS) }
     }
 
     pub fn push(&mut self, msg: Message) {
@@ -100,23 +94,14 @@ mod tests {
     #[test]
     fn role_serializes_lowercase() {
         assert_eq!(serde_json::to_string(&Role::User).unwrap(), "\"user\"");
-        assert_eq!(
-            serde_json::to_string(&Role::Assistant).unwrap(),
-            "\"assistant\""
-        );
+        assert_eq!(serde_json::to_string(&Role::Assistant).unwrap(), "\"assistant\"");
     }
 
     #[test]
     fn drop_thinking_keeps_the_text_and_tool_calls() {
         let mut c = Conversation::new(ConversationId(1), "m");
         c.push(Message::user_text("q"));
-        c.push(Message {
-            role: Role::Assistant,
-            content: vec![
-                ContentBlock::Thinking { thinking: "t".into(), signature: Some("sig".into()) },
-                ContentBlock::Text { text: "a".into() },
-            ],
-        });
+        c.push(Message { role: Role::Assistant, content: vec![ContentBlock::Thinking { thinking: "t".into(), signature: Some("sig".into()) }, ContentBlock::Text { text: "a".into() }] });
         c.push(Message { role: Role::Assistant, content: vec![ContentBlock::RedactedThinking { data: "x".into() }] });
         assert_eq!(c.drop_thinking(), 2);
         assert_eq!(c.len(), 2, "a message left empty goes");
@@ -126,12 +111,8 @@ mod tests {
 
     #[test]
     fn conversation_builds() {
-        let mut c =
-            Conversation::new(ConversationId(1), "claude-sonnet-4-6").with_system("You are arnes.");
-        c.push(Message {
-            role: Role::User,
-            content: vec![ContentBlock::Text { text: "hi".into() }],
-        });
+        let mut c = Conversation::new(ConversationId(1), "claude-sonnet-4-6").with_system("You are arnes.");
+        c.push(Message { role: Role::User, content: vec![ContentBlock::Text { text: "hi".into() }] });
         assert_eq!(c.len(), 1);
         assert_eq!(c.system.as_deref(), Some("You are arnes."));
     }

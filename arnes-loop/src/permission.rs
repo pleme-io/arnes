@@ -160,9 +160,7 @@ impl Guard {
                 text.lines()
                     .find_map(|l| match engine.check(l) {
                         G::Allow => None,
-                        G::Block { rule, message } | G::Warn { rule, message } => {
-                            Some(Screen::Warn(format!("guardrail [{rule}] in the new content: {message}")))
-                        }
+                        G::Block { rule, message } | G::Warn { rule, message } => Some(Screen::Warn(format!("guardrail [{rule}] in the new content: {message}"))),
                         _ => Some(Screen::Warn("guardrail returned an unrecognised decision on the new content".into())),
                     })
                     .unwrap_or(Screen::Clear)
@@ -211,9 +209,7 @@ impl Policy {
         }
         match (self.mode, read_only == Some(true)) {
             (_, true) | (PermissionMode::Bypass, _) => Decision::Allow,
-            (PermissionMode::Plan, false) => Decision::Deny(format!(
-                "plan mode allows only read-only tools; {tool} may write (Shift-Tab changes mode)"
-            )),
+            (PermissionMode::Plan, false) => Decision::Deny(format!("plan mode allows only read-only tools; {tool} may write (Shift-Tab changes mode)")),
             (PermissionMode::Default, false) => Decision::Ask,
         }
     }
@@ -573,8 +569,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("f.txt"), "x\n").unwrap();
         let approver = Arc::new(Scripted(Verdict::Deny("no".into()), Mutex::new(vec![])));
-        let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default())
-            .with_builtins(arnes_tools::Builtins::new(&dir));
+        let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default()).with_builtins(arnes_tools::Builtins::new(&dir));
         let read = g.dispatch("Read", &serde_json::json!({"file_path": "f.txt"})).await.unwrap();
         assert!(read.contains('x'));
         let err = g.dispatch("Bash", &serde_json::json!({"command": "echo hi"})).await.unwrap_err();
@@ -604,16 +599,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.b");
         std::fs::write(&path, "def echo(input)\n  json_get(json_parse(input), :text)\nend\n").unwrap();
-        let spec = |name: &str, read_only| arnes_blue::ToolSpec {
-            name: name.into(),
-            description: String::new(),
-            schema: None,
-            read_only,
-            script: arnes_blue::Script::new(&path, "echo"),
-        };
+        let spec = |name: &str, read_only| arnes_blue::ToolSpec { name: name.into(), description: String::new(), schema: None, read_only, script: arnes_blue::Script::new(&path, "echo") };
         let approver = Arc::new(Scripted(Verdict::Deny("no".into()), Mutex::new(vec![])));
-        let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default())
-            .with_blue_tools(arnes_blue::Tools::new(vec![spec("peek", true), spec("poke", false)]));
+        let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default()).with_blue_tools(arnes_blue::Tools::new(vec![spec("peek", true), spec("poke", false)]));
         let out = g.dispatch("peek", &serde_json::json!({"text": "hi"})).await.unwrap();
         assert_eq!(out, "hi");
         let err = g.dispatch("poke", &serde_json::json!({"text": "hi"})).await.unwrap_err();
@@ -629,8 +617,8 @@ mod tests {
         let path = dir.join("h.b");
         std::fs::write(&path, "def guard(tool, input)\n  if tool == \"mcp__s__write\"\n    \"writes are off today\"\n  else\n    \"allow\"\n  end\nend\n").unwrap();
         let approver = Arc::new(Scripted(Verdict::Allow, Mutex::new(vec![])));
-        let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default())
-            .with_hooks(arnes_blue::Hooks::new(vec![(arnes_blue::HookEvent::BeforeTool, arnes_blue::Script::new(&path, "guard"))]));
+        let g =
+            GatedDispatcher::new(pool(), approver.clone(), Policy::default()).with_hooks(arnes_blue::Hooks::new(vec![(arnes_blue::HookEvent::BeforeTool, arnes_blue::Script::new(&path, "guard"))]));
         let err = g.dispatch("mcp__s__write", &serde_json::json!({})).await.unwrap_err().to_string();
         assert!(err.contains("writes are off today"), "{err}");
         assert!(approver.1.lock().unwrap().is_empty(), "the human is not asked about a vetoed call");
@@ -640,9 +628,7 @@ mod tests {
     fn guarded(approver: Arc<Scripted>, dir: &std::path::Path, mode: PermissionMode) -> GatedDispatcher {
         let rules = guardrail::config::default_rules();
         let engine = guardrail::RegexEngine::new(rules).unwrap();
-        GatedDispatcher::new(pool(), approver, Policy { mode, allow: vec![], deny: vec![] })
-            .with_builtins(arnes_tools::Builtins::new(dir))
-            .with_guard(Guard::On(Box::new(engine)))
+        GatedDispatcher::new(pool(), approver, Policy { mode, allow: vec![], deny: vec![] }).with_builtins(arnes_tools::Builtins::new(dir)).with_guard(Guard::On(Box::new(engine)))
     }
 
     #[tokio::test]

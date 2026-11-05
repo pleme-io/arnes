@@ -35,11 +35,7 @@ impl ExtStore {
     /// (no data root) is state that lives only for this call.
     #[must_use]
     pub fn load(path: Option<PathBuf>) -> Self {
-        let map = path
-            .as_deref()
-            .and_then(|p| std::fs::read_to_string(p).ok())
-            .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+        let map = path.as_deref().and_then(|p| std::fs::read_to_string(p).ok()).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
         Self { path, map }
     }
 

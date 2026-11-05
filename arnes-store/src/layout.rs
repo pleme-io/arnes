@@ -28,13 +28,7 @@ impl Layout {
     #[must_use]
     pub fn from_vars(var: impl Fn(&str) -> Option<OsString>) -> Option<Self> {
         let home = var("HOME").map(PathBuf::from);
-        let root = |xdg: &str, fallback: &str| -> Option<PathBuf> {
-            var(xdg)
-                .map(PathBuf::from)
-                .filter(|p| p.is_absolute())
-                .or_else(|| home.as_ref().map(|h| h.join(fallback)))
-                .map(|p| p.join(APP))
-        };
+        let root = |xdg: &str, fallback: &str| -> Option<PathBuf> { var(xdg).map(PathBuf::from).filter(|p| p.is_absolute()).or_else(|| home.as_ref().map(|h| h.join(fallback))).map(|p| p.join(APP)) };
         Some(Self {
             config: root("XDG_CONFIG_HOME", ".config")?,
             state: root("XDG_STATE_HOME", ".local/state")?,
@@ -46,12 +40,7 @@ impl Layout {
     /// All four roots under one directory (tests, and `--state-dir`-style overrides).
     #[must_use]
     pub fn under(dir: &Path) -> Self {
-        Self {
-            config: dir.join("config"),
-            state: dir.join("state"),
-            cache: dir.join("cache"),
-            data: dir.join("data"),
-        }
+        Self { config: dir.join("config"), state: dir.join("state"), cache: dir.join("cache"), data: dir.join("data") }
     }
 
     // ---- state ----
@@ -119,10 +108,7 @@ impl Layout {
 /// becomes `_`, and a leading dot is escaped so no name is hidden or `..`.
 #[must_use]
 pub fn file_safe(name: &str) -> String {
-    let mut s: String = name
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' })
-        .collect();
+    let mut s: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-') { c } else { '_' }).collect();
     if s.is_empty() || s.starts_with('.') {
         s.insert(0, '_');
     }

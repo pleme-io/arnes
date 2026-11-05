@@ -26,12 +26,7 @@ impl Region {
     /// True when the two share a cell.
     #[must_use]
     pub const fn overlaps(&self, o: &Self) -> bool {
-        !self.is_empty()
-            && !o.is_empty()
-            && self.x < o.x + o.w
-            && o.x < self.x + self.w
-            && self.y < o.y + o.h
-            && o.y < self.y + self.h
+        !self.is_empty() && !o.is_empty() && self.x < o.x + o.w && o.x < self.x + self.w && self.y < o.y + o.h && o.y < self.y + self.h
     }
 }
 
@@ -94,14 +89,7 @@ pub fn layout(cols: u16, rows: u16, d: Demand) -> Regions {
         y += h;
         r
     };
-    Regions {
-        conversation: next(conv),
-        claim: next(claim),
-        notices: next(notices),
-        activity: next(activity),
-        prompt: next(prompt),
-        status: next(status),
-    }
+    Regions { conversation: next(conv), claim: next(claim), notices: next(notices), activity: next(activity), prompt: next(prompt), status: next(status) }
 }
 
 #[cfg(test)]

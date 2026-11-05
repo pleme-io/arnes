@@ -41,8 +41,8 @@ pub mod state;
 pub mod vim;
 
 pub use error::{Error, Result};
-pub use render::{draw_frame, draw_frame_at};
 pub use input::{COMMANDS, Effect, InputState, PickerKind};
 pub use keymap::{Action, Keymap, Resolution};
 pub use mcp_browser::{McpBrowser, ServerEntry, ServerStatus, ToolEntry};
+pub use render::{draw_frame, draw_frame_at};
 pub use state::{ApprovalView, MAX_TOASTS, Overlay, Pane, Toast, ToastLevel, TuiState, UsageView};

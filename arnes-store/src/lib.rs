@@ -33,14 +33,7 @@ pub struct Policy {
 
 impl Default for Policy {
     fn default() -> Self {
-        Self {
-            sessions: true,
-            session_retention: Retention {
-                keep_newest: Some(200),
-                max_age: Some(Duration::from_secs(90 * 24 * 60 * 60)),
-            },
-            log_max_bytes: 8 * 1024 * 1024,
-        }
+        Self { sessions: true, session_retention: Retention { keep_newest: Some(200), max_age: Some(Duration::from_secs(90 * 24 * 60 * 60)) }, log_max_bytes: 8 * 1024 * 1024 }
     }
 }
 
@@ -119,11 +112,7 @@ mod tests {
         for i in 0..3 {
             write_atomic(&l.sessions_dir().join(format!("{i}.json")), b"{}").unwrap();
         }
-        let policy = Policy {
-            sessions: true,
-            session_retention: Retention { keep_newest: Some(1), max_age: None },
-            log_max_bytes: 5,
-        };
+        let policy = Policy { sessions: true, session_retention: Retention { keep_newest: Some(1), max_age: None }, log_max_bytes: 5 };
         let s = sweep(&l, &policy, SystemTime::now());
         assert_eq!(s.sessions_removed.len(), 2);
         assert_eq!(s.logs_rotated.len(), 2);

@@ -173,10 +173,7 @@ mod tests {
         let all = vec![e(1, "/a", "a1"), e(2, "/b", "b1"), e(3, "/a", "a2"), e(4, "/b", "b2")];
         let texts = |r: Vec<Recalled>| r.into_iter().map(|r| (r.entry.text, r.here)).collect::<Vec<_>>();
         assert_eq!(texts(scoped(all.clone(), Path::new("/a"), Scope::Project)), [("a1".into(), true), ("a2".into(), true)]);
-        assert_eq!(
-            texts(scoped(all.clone(), Path::new("/a"), Scope::Global)),
-            [("a1".into(), true), ("b1".into(), false), ("a2".into(), true), ("b2".into(), false)]
-        );
+        assert_eq!(texts(scoped(all.clone(), Path::new("/a"), Scope::Global)), [("a1".into(), true), ("b1".into(), false), ("a2".into(), true), ("b2".into(), false)]);
         assert_eq!(
             texts(scoped(all, Path::new("/a"), Scope::ProjectThenGlobal)),
             [("b1".into(), false), ("b2".into(), false), ("a1".into(), true), ("a2".into(), true)],

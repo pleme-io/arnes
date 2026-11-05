@@ -35,10 +35,7 @@ fn math_transcript_gallery() {
     let blank = |r: &str| r.trim().is_empty();
 
     let body = find("Sure!")..find("• second");
-    assert!(
-        rows[body.clone()].windows(2).all(|w| !(blank(w[0]) && blank(w[1]))),
-        "a doubled blank row:\n{s}"
-    );
+    assert!(rows[body.clone()].windows(2).all(|w| !(blank(w[0]) && blank(w[1]))), "a doubled blank row:\n{s}");
     let step = find("Step-by-step");
     assert!(blank(rows[step - 1]) && !blank(rows[step - 2]), "one blank before a block:\n{s}");
     let math = find("∫₀¹ ln(1+x) dx.");

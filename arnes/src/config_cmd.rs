@@ -49,15 +49,7 @@ pub fn typed_refusals(cfg: &ArnesConfig) -> Vec<String> {
     out.extend(arnes_tui::Keymap::from_config(cfg).1);
     let mode = cfg.editor_mode_name();
     out.extend(arnes_config::sections::one_of("editor-mode", mode.as_deref(), &["normal", "vim"], "normal").1);
-    for e in [
-        cfg.provider().err(),
-        cfg.request_params().err(),
-        cfg.permission_policy().err(),
-        cfg.mcp_exposure().err(),
-    ]
-    .into_iter()
-    .flatten()
-    {
+    for e in [cfg.provider().err(), cfg.request_params().err(), cfg.permission_policy().err(), cfg.mcp_exposure().err()].into_iter().flatten() {
         out.push(e);
     }
     out.extend(cfg.fallback_routes().1);

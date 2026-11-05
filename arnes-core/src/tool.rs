@@ -53,20 +53,12 @@ pub struct ToolResult {
 impl ToolResult {
     #[must_use]
     pub fn ok(tool_use_id: impl Into<String>, content: impl Into<String>) -> Self {
-        Self {
-            tool_use_id: tool_use_id.into(),
-            content: content.into(),
-            is_error: false,
-        }
+        Self { tool_use_id: tool_use_id.into(), content: content.into(), is_error: false }
     }
 
     #[must_use]
     pub fn err(tool_use_id: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            tool_use_id: tool_use_id.into(),
-            content: message.into(),
-            is_error: true,
-        }
+        Self { tool_use_id: tool_use_id.into(), content: message.into(), is_error: true }
     }
 }
 

@@ -33,9 +33,7 @@ impl Format {
     /// # Errors
     /// Names the accepted formats.
     pub fn parse(s: &str) -> Result<Self, String> {
-        Self::ALL.into_iter().find(|f| f.name() == s).ok_or_else(|| {
-            format!("unknown format {s:?}; expected one of {:?}", Self::ALL.map(Self::name))
-        })
+        Self::ALL.into_iter().find(|f| f.name() == s).ok_or_else(|| format!("unknown format {s:?}; expected one of {:?}", Self::ALL.map(Self::name)))
     }
 }
 
@@ -79,11 +77,7 @@ fn lisp(v: &Value, depth: usize) -> String {
 }
 
 fn nix_key(k: &str) -> String {
-    if k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') && !k.starts_with(|c: char| c.is_ascii_digit()) {
-        k.to_owned()
-    } else {
-        serde_json::to_string(k).unwrap_or_default()
-    }
+    if k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') && !k.starts_with(|c: char| c.is_ascii_digit()) { k.to_owned() } else { serde_json::to_string(k).unwrap_or_default() }
 }
 
 fn nix(v: &Value, depth: usize) -> String {

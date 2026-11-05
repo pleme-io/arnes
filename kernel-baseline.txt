@@ -10,24 +10,24 @@
 host: arnes-blue 22
 
 # the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts)
-rust: arnes 2883
+rust: arnes 2715
 # provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches
-rust: arnes-anthropic 646
+rust: arnes-anthropic 582
 # the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships
-rust: arnes-blue 827
+rust: arnes-blue 753
 # configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section
-rust: arnes-config 1799
+rust: arnes-config 1731
 # conversation and usage types the kernel crates share
-rust: arnes-core 318
+rust: arnes-core 282
 # the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served
-rust: arnes-loop 598
+rust: arnes-loop 543
 # MCP processes and sockets
-rust: arnes-mcp-client 919
+rust: arnes-mcp-client 811
 # durable formats and atomic writes
-rust: arnes-store 580
+rust: arnes-store 550
 # the built-in tools: filesystem, subprocess, guardrail
-rust: arnes-tools 408
+rust: arnes-tools 390
 # the render engine and the screen law: the per-frame hot path
-rust: arnes-tui 3059
+rust: arnes-tui 2948
 # the vigy runtime embedding
-rust: arnes-vigy 216
+rust: arnes-vigy 197

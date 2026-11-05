@@ -96,7 +96,7 @@ impl Builtins {
     }
 
     /// The tool definitions, sorted by name — a fixed, cache-stable block.
-    #[must_use]
+    #[must_use] #[rustfmt::skip]
     pub fn tools() -> Vec<Tool> {
         let t = |name: &str, description: &str, schema: Value| Tool {
             name: name.into(),
@@ -199,10 +199,7 @@ impl Builtins {
         match (n, all) {
             (0, _) => return Err(ToolError::Invalid(format!("old_string not found in {}", path.display()))),
             (n, false) if n > 1 => {
-                return Err(ToolError::Invalid(format!(
-                    "old_string appears {n} times in {}; add surrounding context to make it unique, or set replace_all",
-                    path.display()
-                )));
+                return Err(ToolError::Invalid(format!("old_string appears {n} times in {}; add surrounding context to make it unique, or set replace_all", path.display())));
             }
             _ => {}
         }
@@ -218,9 +215,7 @@ impl Builtins {
 
     fn glob(&self, input: &Value) -> Result<String> {
         let pattern = str_field(input, "pattern")?;
-        let matcher = globset::Glob::new(pattern)
-            .map_err(|e| ToolError::Invalid(format!("bad glob {pattern:?}: {e}")))?
-            .compile_matcher();
+        let matcher = globset::Glob::new(pattern).map_err(|e| ToolError::Invalid(format!("bad glob {pattern:?}: {e}")))?.compile_matcher();
         let base = self.walk(input);
         let mut hits: Vec<(std::time::SystemTime, String)> = ignore::WalkBuilder::new(&base)
             .build()
@@ -249,16 +244,8 @@ impl Builtins {
     fn grep(&self, input: &Value) -> Result<String> {
         let pattern = str_field(input, "pattern")?;
         let insensitive = input.get("-i").and_then(Value::as_bool).unwrap_or(false);
-        let re = regex::RegexBuilder::new(pattern)
-            .case_insensitive(insensitive)
-            .build()
-            .map_err(|e| ToolError::Invalid(format!("bad regex {pattern:?}: {e}")))?;
-        let filter = input
-            .get("glob")
-            .and_then(Value::as_str)
-            .map(|g| globset::Glob::new(g).map(|g| g.compile_matcher()))
-            .transpose()
-            .map_err(|e| ToolError::Invalid(format!("bad glob: {e}")))?;
+        let re = regex::RegexBuilder::new(pattern).case_insensitive(insensitive).build().map_err(|e| ToolError::Invalid(format!("bad regex {pattern:?}: {e}")))?;
+        let filter = input.get("glob").and_then(Value::as_str).map(|g| globset::Glob::new(g).map(|g| g.compile_matcher())).transpose().map_err(|e| ToolError::Invalid(format!("bad glob: {e}")))?;
         let base = self.walk(input);
         let mut out = Vec::new();
         let mut total = 0usize;
@@ -293,9 +280,7 @@ impl Builtins {
 
     async fn bash(&self, input: &Value) -> Result<String> {
         let command = str_field(input, "command")?;
-        let timeout = usize_field(input, "timeout")
-            .map_or(BASH_DEFAULT_TIMEOUT, |ms| Duration::from_millis(ms as u64))
-            .min(BASH_MAX_TIMEOUT);
+        let timeout = usize_field(input, "timeout").map_or(BASH_DEFAULT_TIMEOUT, |ms| Duration::from_millis(ms as u64)).min(BASH_MAX_TIMEOUT);
         let child = tokio::process::Command::new("/bin/sh")
             .arg("-c")
             .arg(command)
@@ -325,10 +310,7 @@ impl Builtins {
 }
 
 fn str_field<'a>(input: &'a Value, key: &str) -> Result<&'a str> {
-    input
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| ToolError::Invalid(format!("missing string field {key:?}")))
+    input.get(key).and_then(Value::as_str).ok_or_else(|| ToolError::Invalid(format!("missing string field {key:?}")))
 }
 
 fn usize_field(input: &Value, key: &str) -> Option<usize> {

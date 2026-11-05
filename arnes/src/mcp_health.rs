@@ -90,9 +90,7 @@ fn watched(pool: &McpPool) -> Vec<(String, bool)> {
 fn notice(server: &str, was: State, change: Change, h: &Health, error: Option<&str>) -> Option<(bool, String)> {
     let secs = h.interval.as_secs().max(1);
     match change {
-        Change::WentDown if was != State::Unknown => {
-            Some((true, format!("MCP {server} down: {}; retrying in {secs}s", error.unwrap_or("no answer"))))
-        }
+        Change::WentDown if was != State::Unknown => Some((true, format!("MCP {server} down: {}; retrying in {secs}s", error.unwrap_or("no answer")))),
         Change::CameUp if was == State::Down => Some((false, format!("MCP {server} is back"))),
         Change::Quarantined => Some((true, format!("MCP {server} keeps flapping; quarantined for {secs}s"))),
         Change::Released => Some((false, format!("MCP {server} released from quarantine"))),
@@ -189,13 +187,7 @@ pub fn spawn(mut inputs: Inputs, out: mpsc::UnboundedSender<Msg>, facts: arnes_v
                             None => (s.clone(), None, None),
                             Some(spec) => {
                                 let a = McpPool::connect_server(spec, connect, log_dir.as_deref()).await;
-                                let probe = Probe {
-                                    server: s.clone(),
-                                    up: a.error().is_none(),
-                                    latency_ms: None,
-                                    tools: 0,
-                                    error: a.error().map(str::to_owned),
-                                };
+                                let probe = Probe { server: s.clone(), up: a.error().is_none(), latency_ms: None, tools: 0, error: a.error().map(str::to_owned) };
                                 (s.clone(), Some(probe), Some(a))
                             }
                         },

@@ -32,26 +32,19 @@ use anyhow::{Context, Result};
 use arnes_anthropic::{AnthropicClient, Fallback};
 use arnes_config::ArnesConfig;
 use arnes_core::{Conversation, ConversationId, Message};
-use arnes_loop::permission::{
-    Approver, ApprovalRequest, GatedDispatcher, NoHuman, Verdict,
-};
+use arnes_core::{Effort, ThinkingMode};
 use arnes_loop::ledger::Ledger;
+use arnes_loop::permission::{ApprovalRequest, Approver, GatedDispatcher, NoHuman, Verdict};
 use arnes_loop::run_turn_recorded;
 use arnes_mcp_client::McpPool;
-use arnes_core::{Effort, ThinkingMode};
 use arnes_tui::{ApprovalView, Effect, Keymap, Overlay, Resolution, TuiState};
 use clap::Parser;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use egaku_term::{Buffer, Terminal, render_diff};
 use tokio::sync::mpsc;
 
-
 #[derive(Parser)]
-#[command(
-    name = "arnes",
-    version,
-    about = "agent harness — claude + mcp + tui, pleme-io native"
-)]
+#[command(name = "arnes", version, about = "agent harness — claude + mcp + tui, pleme-io native")]
 struct Args {
     /// Override config path (otherwise shikumi discovers via $`ARNES_CONFIG` / $`XDG_CONFIG_HOME`).
     #[arg(long)]
@@ -91,11 +84,11 @@ enum Command {
 }
 
 mod config_cmd;
-mod routing;
 mod mcp_health;
 mod notice;
 mod prompt_history;
 mod record;
+mod routing;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -109,22 +102,12 @@ async fn main() -> Result<()> {
         return Ok(());
     }
     // The TUI owns the terminal unless this is a one-shot or a dump.
-    let surface = if args.message.is_some() || args.dump_config || args.dump_mcp || args.models {
-        notice::Surface::Plain
-    } else {
-        notice::Surface::Tui
-    };
+    let surface = if args.message.is_some() || args.dump_config || args.dump_mcp || args.models { notice::Surface::Plain } else { notice::Surface::Tui };
     let toasts = notice::init(surface);
 
     ArnesConfig::register_domains();
 
-    let mut cfg = if let Some(path) = &args.config {
-        ArnesConfig::load_file(path)
-            .map_err(anyhow::Error::msg)
-            .context("loading config from --config path")?
-    } else {
-        ArnesConfig::load()
-    };
+    let mut cfg = if let Some(path) = &args.config { ArnesConfig::load_file(path).map_err(anyhow::Error::msg).context("loading config from --config path")? } else { ArnesConfig::load() };
     if let Some(model) = args.model {
         cfg.modelo = model;
     }
@@ -173,9 +156,7 @@ async fn main() -> Result<()> {
     }
     let max_age = if args.models { std::time::Duration::ZERO } else { knobs.catalog_max_age };
     let catalog = match (provider.models_url(), &key) {
-        (Some((models_url, auth)), Some(key)) => {
-            Some(arnes_anthropic::catalog::load_or_refresh(provider.name(), models_url, auth, key, max_age).await)
-        }
+        (Some((models_url, auth)), Some(key)) => Some(arnes_anthropic::catalog::load_or_refresh(provider.name(), models_url, auth, key, max_age).await),
         _ if args.models => anyhow::bail!("{} has no model catalogue; it serves the model it was started with", provider.name()),
         _ => None,
     };
@@ -261,13 +242,7 @@ fn build_client(cfg: &ArnesConfig) -> std::result::Result<(AnthropicClient, Vec<
             label: r.label.clone(),
             model: r.model,
             client: version(
-                AnthropicClient::new(r.key)
-                    .with_label(r.label)
-                    .with_base_url(r.endpoint)
-                    .with_auth(r.auth)
-                    .with_provider(r.provider.name())
-                    .with_params(params)
-                    .with_system_note(r.system_note),
+                AnthropicClient::new(r.key).with_label(r.label).with_base_url(r.endpoint).with_auth(r.auth).with_provider(r.provider.name()).with_params(params).with_system_note(r.system_note),
             ),
             tools: r.tools,
         });
@@ -292,11 +267,7 @@ fn route_prices(cfg: &ArnesConfig) -> std::collections::HashMap<String, arnes_lo
         .chain(routes)
         .filter_map(|r| {
             let f = &r.facts;
-            let price = arnes_loop::ledger::Price {
-                cache_hit: f64::from(f.price_cache.or(f.price_in)?),
-                cache_miss: f64::from(f.price_in?),
-                output: f64::from(f.price_out?),
-            };
+            let price = arnes_loop::ledger::Price { cache_hit: f64::from(f.price_cache.or(f.price_in)?), cache_miss: f64::from(f.price_in?), output: f64::from(f.price_out?) };
             Some((r.label, price))
         })
         .collect()
@@ -419,17 +390,12 @@ struct Protocols;
 
 impl Protocols {
     fn enable() -> std::io::Result<Self> {
-        use crossterm::event::{
-            EnableBracketedPaste, KeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-        };
+        use crossterm::event::{EnableBracketedPaste, KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
         let mut out = std::io::stdout();
         crossterm::execute!(out, EnableBracketedPaste)?;
         // Terminals without the protocol ignore the push; the portable
         // newline fallbacks (Alt-Enter, Ctrl-J, `\`+Enter) still work there.
-        let _ = crossterm::execute!(
-            out,
-            PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
-        );
+        let _ = crossterm::execute!(out, PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES));
         Ok(Self)
     }
 }
@@ -447,16 +413,10 @@ impl Drop for Protocols {
 fn next_thinking(t: ThinkingMode) -> ThinkingMode {
     match t {
         ThinkingMode::Off => ThinkingMode::On { effort: Some(Effort::Low), budget: None },
-        ThinkingMode::On { effort: Some(Effort::Low), budget } => {
-            ThinkingMode::On { effort: Some(Effort::High), budget }
-        }
-        ThinkingMode::On { effort: Some(Effort::High), budget } => {
-            ThinkingMode::On { effort: Some(Effort::Max), budget }
-        }
+        ThinkingMode::On { effort: Some(Effort::Low), budget } => ThinkingMode::On { effort: Some(Effort::High), budget },
+        ThinkingMode::On { effort: Some(Effort::High), budget } => ThinkingMode::On { effort: Some(Effort::Max), budget },
         ThinkingMode::On { effort: Some(Effort::Max), .. } => ThinkingMode::Off,
-        ThinkingMode::ProviderDefault | ThinkingMode::On { effort: None, .. } => {
-            ThinkingMode::On { effort: Some(Effort::Low), budget: None }
-        }
+        ThinkingMode::ProviderDefault | ThinkingMode::On { effort: None, .. } => ThinkingMode::On { effort: Some(Effort::Low), budget: None },
     }
 }
 
@@ -486,11 +446,7 @@ fn handle_key(state: &mut TuiState, keymap: &mut Keymap, ke: KeyEvent) -> Vec<Ef
             escriba_core::Mode::Normal if ke.code == KeyCode::Enter => {
                 return state.input.apply(arnes_tui::Action::Submit, state.busy, Instant::now());
             }
-            escriba_core::Mode::Normal
-                if ke.code == KeyCode::Esc
-                    && state.busy
-                    && !state.input.vim.as_ref().is_some_and(arnes_tui::vim::VimInput::is_pending) =>
-            {
+            escriba_core::Mode::Normal if ke.code == KeyCode::Esc && state.busy && !state.input.vim.as_ref().is_some_and(arnes_tui::vim::VimInput::is_pending) => {
                 return state.input.apply(arnes_tui::Action::Cancel, state.busy, Instant::now());
             }
             _ => {
@@ -509,13 +465,14 @@ fn handle_key(state: &mut TuiState, keymap: &mut Keymap, ke: KeyEvent) -> Vec<Ef
         return effects;
     }
     if let KeyCode::Char(c) = ke.code
-        && !ke.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) {
-            if keymap.is_pending() {
-                keymap.cancel_pending();
-                return vec![];
-            }
-            return state.input.type_char(c);
+        && !ke.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+    {
+        if keymap.is_pending() {
+            keymap.cancel_pending();
+            return vec![];
         }
+        return state.input.type_char(c);
+    }
     let Some(hk) = egaku_term::event::to_hotkey(&ke) else { return vec![] };
     match keymap.resolve(hk) {
         Resolution::Action(a) => state.input.apply(a, state.busy, Instant::now()),
@@ -599,9 +556,7 @@ fn expand_mentions(prompt: &str, max_bytes: u64, allowed: &dyn Fn(&std::path::Pa
 fn edit_externally(text: &str) -> Result<String> {
     let path = std::env::temp_dir().join(format!("arnes-prompt-{}.md", std::process::id()));
     std::fs::write(&path, text)?;
-    let editor = std::env::var("VISUAL")
-        .or_else(|_| std::env::var("EDITOR"))
-        .unwrap_or_else(|_| "vi".into());
+    let editor = std::env::var("VISUAL").or_else(|_| std::env::var("EDITOR")).unwrap_or_else(|_| "vi".into());
     let mut parts = editor.split_whitespace();
     let program = parts.next().unwrap_or("vi");
     let status = std::process::Command::new(program).args(parts).arg(&path).status()?;
@@ -632,10 +587,9 @@ struct TurnKit<'a> {
 fn turn_failure(e: &arnes_loop::LoopError, route: &(String, bool)) -> String {
     use arnes_loop::LoopError;
     match e {
-        LoopError::Anthropic(a) if a.brief() == "unreachable" && route.1 => format!(
-            "the local model at {} is not reachable: start llama-server there (pleme.llm.server), or pick another route with /model",
-            route.0
-        ),
+        LoopError::Anthropic(a) if a.brief() == "unreachable" && route.1 => {
+            format!("the local model at {} is not reachable: start llama-server there (pleme.llm.server), or pick another route with /model", route.0)
+        }
         LoopError::Anthropic(a) => format!("no route could answer: {} ({})", a.brief(), route.0),
         other => other.to_string(),
     }
@@ -651,15 +605,7 @@ fn begin_turn(state: &mut TuiState, live: &Live, kit: &TurnKit<'_>, prompt: &str
     if !routing::enabled(&live.cfg) || hooks.is_empty() {
         return start_turn(state, kit);
     }
-    let ask = routing::Ask {
-        cfg: &live.cfg,
-        base: &live.base,
-        client: &live.client,
-        totals: kit.ledger.totals(),
-        conversation: &state.conversation,
-        prompt,
-        source: live.route_source,
-    };
+    let ask = routing::Ask { cfg: &live.cfg, base: &live.base, client: &live.client, totals: kit.ledger.totals(), conversation: &state.conversation, prompt, source: live.route_source };
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis());
     let facts = routing::facts(&ask, &conversation_text(&state.conversation), now);
     let (budget, reach, tx) = (routing::budget(&live.cfg), live.reach.clone(), routed.clone());
@@ -667,11 +613,7 @@ fn begin_turn(state: &mut TuiState, live: &Live, kit: &TurnKit<'_>, prompt: &str
     state.activity.note("choosing a route", false, Instant::now());
     tokio::spawn(async move {
         let asked = facts.clone();
-        let answer = tokio::task::spawn_blocking(move || arnes_blue::policy_with(routing::EVENT, &hooks, &asked, budget, reach))
-            .await
-            .ok()
-            .flatten()
-            .map(|r| r.map_err(|e| e.to_string()));
+        let answer = tokio::task::spawn_blocking(move || arnes_blue::policy_with(routing::EVENT, &hooks, &asked, budget, reach)).await.ok().flatten().map(|r| r.map_err(|e| e.to_string()));
         let _ = tx.send(Routed { answer, facts });
     })
 }
@@ -714,14 +656,10 @@ fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandl
     // The turn owns a snapshot; the UI keeps rendering and reading keys, so
     // Esc / Ctrl-C can interrupt it (no lock held across the network call).
     let mut conversation = state.conversation.clone();
-    let (client, gate, tools, tx, ledger) =
-        (kit.client.clone(), kit.gate.clone(), kit.tools.clone(), kit.tx.clone(), kit.ledger.clone());
+    let (client, gate, tools, tx, ledger) = (kit.client.clone(), kit.gate.clone(), kit.tools.clone(), kit.tx.clone(), kit.ledger.clone());
     let observed = Observed { inner: gate, tx: kit.activity.clone() };
     tokio::spawn(async move {
-        let result = run_turn_recorded(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger))
-            .await
-            .map(|_| ())
-            .map_err(|e| turn_failure(&e, &route));
+        let result = run_turn_recorded(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger)).await.map(|_| ()).map_err(|e| turn_failure(&e, &route));
         let _ = tx.send(TurnDone { conversation, result }).await;
     })
 }
@@ -882,10 +820,7 @@ impl Live {
         if next.drops_foreign_thinking(&self.cfg) {
             let n = state.conversation.drop_thinking();
             if n > 0 {
-                state.toast(
-                    arnes_tui::ToastLevel::Info,
-                    format!("{n} thinking block(s) from {} dropped: {} cannot accept another provider's signed reasoning", self.cfg.provedor, next.provedor),
-                );
+                state.toast(arnes_tui::ToastLevel::Info, format!("{n} thinking block(s) from {} dropped: {} cannot accept another provider's signed reasoning", self.cfg.provedor, next.provedor));
             }
         }
         self.client = rebuilt;
@@ -1093,12 +1028,7 @@ struct Session {
     resume: Option<String>,
 }
 
-async fn run_tui(
-    client: &AnthropicClient,
-    cfg: &ArnesConfig,
-    session: Session,
-    toasts: std::sync::mpsc::Receiver<(arnes_tui::ToastLevel, String)>,
-) -> Result<()> {
+async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, toasts: std::sync::mpsc::Receiver<(arnes_tui::ToastLevel, String)>) -> Result<()> {
     let Session { file, profile, watch, resume } = session;
     // The file is watched here and read through the one load path, so a
     // reload refuses a bad key alone exactly as startup does; a file that
@@ -1156,15 +1086,7 @@ async fn run_tui(
         Arc::new(connect_mcp(cfg, knobs).await?)
     };
     let (approval_tx, mut approval_rx) = mpsc::channel::<PendingApproval>(4);
-    let gate = Arc::new(with_builtins(
-        cfg,
-        GatedDispatcher::new(
-            pool.clone(),
-            Arc::new(TuiApprover { tx: approval_tx }),
-            cfg.permission_policy().map_err(anyhow::Error::msg)?,
-        ),
-        &skills,
-    ));
+    let gate = Arc::new(with_builtins(cfg, GatedDispatcher::new(pool.clone(), Arc::new(TuiApprover { tx: approval_tx }), cfg.permission_policy().map_err(anyhow::Error::msg)?), &skills));
     let tools = Arc::new(session_tools(cfg, &pool, &skills)?);
     let pool_for_probe = pool.clone();
     let depth = egaku_term::theme::ColorDepth::detect();
@@ -1281,16 +1203,7 @@ async fn run_tui(
 
     macro_rules! kit {
         () => {
-            TurnKit {
-                client: &live.client,
-                gate: &live.gate,
-                tools: &live.tools,
-                ledger: &ledger,
-                tx: &tx,
-                activity: &act_tx,
-                rounds: live.knobs.max_rounds,
-                route: live.route(),
-            }
+            TurnKit { client: &live.client, gate: &live.gate, tools: &live.tools, ledger: &ledger, tx: &tx, activity: &act_tx, rounds: live.knobs.max_rounds, route: live.route() }
         };
     }
 
@@ -1359,19 +1272,17 @@ async fn run_tui(
                     }
                 }
             }
-            let queued = state.input.take_queued().and_then(|next| {
-                match live.hooks.before_submit(&next, &conversation_text(&state.conversation)) {
-                    Ok((next, effects)) => {
-                        for e in effects {
-                            apply_blue_effect(&mut state, e);
-                        }
-                        Some(next)
+            let queued = state.input.take_queued().and_then(|next| match live.hooks.before_submit(&next, &conversation_text(&state.conversation)) {
+                Ok((next, effects)) => {
+                    for e in effects {
+                        apply_blue_effect(&mut state, e);
                     }
-                    Err(e) => {
-                        state.toast(arnes_tui::ToastLevel::Error, format!("{e}; queued prompt not sent"));
-                        state.input.set_text(&next);
-                        None
-                    }
+                    Some(next)
+                }
+                Err(e) => {
+                    state.toast(arnes_tui::ToastLevel::Error, format!("{e}; queued prompt not sent"));
+                    state.input.set_text(&next);
+                    None
                 }
             });
             if let Some(next) = queued.and_then(|next| hosted_before_submit(&mut state, &live, next)) {
@@ -1468,12 +1379,7 @@ async fn run_tui(
 
         // A tool wants approval: show the dialog; the turn waits on the reply.
         while let Ok(PendingApproval { request, reply }) = approval_rx.try_recv() {
-            state.approval = Some(ApprovalView {
-                tool: request.tool,
-                input: serde_json::to_string(&request.input).unwrap_or_default(),
-                selected: 0,
-                warning: request.warning,
-            });
+            state.approval = Some(ApprovalView { tool: request.tool, input: serde_json::to_string(&request.input).unwrap_or_default(), selected: 0, warning: request.warning });
             approval_reply = Some(reply);
             if live.notifications {
                 let tool = state.approval.as_ref().map_or("", |a| a.tool.as_str());
@@ -1574,9 +1480,7 @@ async fn run_tui(
                             t.abort();
                             // Keep the transcript valid for the next turn: the
                             // user's prompt stays, answered by a marker.
-                            state
-                                .conversation
-                                .push(Message::assistant_text("[interrupted by user]"));
+                            state.conversation.push(Message::assistant_text("[interrupted by user]"));
                             state.set_busy(false);
                         }
                     }
@@ -1613,120 +1517,131 @@ async fn run_tui(
                         state.input.open_mention_picker(files);
                     }
                     Effect::Command { name, args } => {
-                    // A user declaration, then the hosted bidama, then the
-                    // kernel (docs/kernel.md §2). A module's arnes_clear() and
-                    // arnes_exit() run the very same kernel arms below.
-                    let mut kernel_names: Vec<(String, String)> = Vec::new();
-                    match serve(&name, &live.commands, &live.hosted, &live.cfg) {
-                        Serve::User(decl) => kernel_names.extend(run_blue_command(&mut state, decl, &args, module_budget(&live.cfg))),
-                        Serve::Module => kernel_names.extend(run_std_command(&mut state, &live.hosted, &name, &args, &live.keymap, &recent_sessions(recorder.as_ref()), module_budget(&live.cfg), &live.cfg.read_roots())),
-                        Serve::Off => state.input.hint = Some(format!("/{name} is off (:modules-off)")),
-                        Serve::Kernel => kernel_names.push((name.clone(), args.clone())),
-                    }
-                    for (name, args) in kernel_names { match name.as_str() {
-                        "exit" => {
-                            if let Some(t) = turn.take() {
-                                t.abort();
-                            }
-                            return Ok(());
+                        // A user declaration, then the hosted bidama, then the
+                        // kernel (docs/kernel.md §2). A module's arnes_clear() and
+                        // arnes_exit() run the very same kernel arms below.
+                        let mut kernel_names: Vec<(String, String)> = Vec::new();
+                        match serve(&name, &live.commands, &live.hosted, &live.cfg) {
+                            Serve::User(decl) => kernel_names.extend(run_blue_command(&mut state, decl, &args, module_budget(&live.cfg))),
+                            Serve::Module => kernel_names.extend(run_std_command(
+                                &mut state,
+                                &live.hosted,
+                                &name,
+                                &args,
+                                &live.keymap,
+                                &recent_sessions(recorder.as_ref()),
+                                module_budget(&live.cfg),
+                                &live.cfg.read_roots(),
+                            )),
+                            Serve::Off => state.input.hint = Some(format!("/{name} is off (:modules-off)")),
+                            Serve::Kernel => kernel_names.push((name.clone(), args.clone())),
                         }
-                        "help" => state.input.show_help = true,
-                        "clear" => {
-                            if let Some(t) = turn.take() {
-                                t.abort();
-                            }
-                            state.conversation = new_conversation(&live.cfg);
-                            state.conversation.system = system_prompt(&live.cfg, &live.skills).0;
-                            if let Some(r) = recorder.as_mut() {
-                                r.restart(&state.conversation);
-                            }
-                            state.set_busy(false);
-                            state.last_error = None;
-                            state.input.hint = Some("new conversation".into());
-                        }
-                        "vigy" => vigy_command(&mut state, ticking.as_ref(), &args).await,
-                        "resume" => match (recorder.as_mut(), args.trim()) {
-                            (None, _) => state.set_error("/resume: no state directory to keep sessions in".to_owned()),
-                            (Some(r), "") => {
-                                for line in r.recent(5) {
-                                    state.toast(arnes_tui::ToastLevel::Info, line);
-                                }
-                                state.input.hint = Some("/resume <n> or /resume <id prefix>".into());
-                            }
-                            (Some(r), query) => match r.resume(query) {
-                                Ok(conversation) => {
+                        for (name, args) in kernel_names {
+                            match name.as_str() {
+                                "exit" => {
                                     if let Some(t) = turn.take() {
                                         t.abort();
                                     }
-                                    state.conversation = conversation;
+                                    return Ok(());
+                                }
+                                "help" => state.input.show_help = true,
+                                "clear" => {
+                                    if let Some(t) = turn.take() {
+                                        t.abort();
+                                    }
+                                    state.conversation = new_conversation(&live.cfg);
+                                    state.conversation.system = system_prompt(&live.cfg, &live.skills).0;
+                                    if let Some(r) = recorder.as_mut() {
+                                        r.restart(&state.conversation);
+                                    }
                                     state.set_busy(false);
                                     state.last_error = None;
-                                    state.input.hint = Some(format!("resumed {}", r.describe()));
+                                    state.input.hint = Some("new conversation".into());
                                 }
-                                Err(e) => state.set_error(format!("/resume: {e}")),
-                            },
-                        },
-                        "vim" => {
-                            if state.input.vim.is_some() {
-                                state.input.vim = None;
-                                state.input.hint = Some("vim editing off".into());
-                            } else {
-                                state.input.enable_vim();
-                            }
-                        }
-                        "mode" => match arnes_loop::permission::PermissionMode::parse(args.trim()) {
-                            Ok(m) => {
-                                live.gate.set_mode(m);
-                                state.permission_mode = m.name().into();
-                            }
-                            Err(e) => state.set_error(e),
-                        },
-                        "mcp" => {
-                            let health = match ticking.as_ref() {
-                                Some(t) => t.health().await,
-                                None => None,
-                            };
-                            state.mcp = Some(mcp_browser(&live.cfg, &live.pool, health.as_ref()).with_keymap(&state.nav_menu));
-                        }
-                        "notices" => state.panel = Some(("notices".into(), state.notice_lines())),
-                        "profile" if args.trim().is_empty() => {
-                            let mut choices = live.file.profile_choices();
-                            choices.push(("-".into(), "no profile: the file alone".into()));
-                            let choices = choices.into_iter().map(|(n, d)| {
-                                let mark = if live.profile.as_deref() == Some(n.as_str()) { "\u{2022}" } else { " " };
-                                (n.clone(), format!("{mark} {n:<16} {d}"))
-                            });
-                            state.input.open_choice_picker("profile", choices.collect());
-                        }
-                        "profile" => live.switch_profile(&args, &mut state, &reapply),
-                        "model" => {
-                            let pick = args.trim();
-                            let catalog = model_catalog(&live.base, live.knobs.catalog_max_age).await;
-                            if pick.is_empty() {
-                                state.input.open_model_picker(model_choices(&live.base, &live.cfg, catalog.as_ref()));
-                            } else {
-                                // The conversation moves with the switch: same
-                                // messages, same prompt, the next turn on the new route.
-                                match switch_model(&live.base, &live.cfg, pick, catalog.as_ref()) {
-                                    Ok(next) => match live.switch_route(&next, &mut state) {
-                                        Ok(refused) => {
-                                            state.conversation.system = system_prompt(&next, &live.skills).0;
-                                            state.input.hint = Some(format!("now talking to {} on {}", next.model(), next.provedor));
-                                            if !refused.is_empty() {
-                                                state.set_error(format!("route skipped: {}", refused.join("; ")));
-                                            }
-                                            live.cfg = next;
-                                            live.route_source = "manual";
-                                            probe_local(&live.cfg);
+                                "vigy" => vigy_command(&mut state, ticking.as_ref(), &args).await,
+                                "resume" => match (recorder.as_mut(), args.trim()) {
+                                    (None, _) => state.set_error("/resume: no state directory to keep sessions in".to_owned()),
+                                    (Some(r), "") => {
+                                        for line in r.recent(5) {
+                                            state.toast(arnes_tui::ToastLevel::Info, line);
                                         }
-                                        Err(e) => state.set_error(format!("/model: {e}")),
+                                        state.input.hint = Some("/resume <n> or /resume <id prefix>".into());
+                                    }
+                                    (Some(r), query) => match r.resume(query) {
+                                        Ok(conversation) => {
+                                            if let Some(t) = turn.take() {
+                                                t.abort();
+                                            }
+                                            state.conversation = conversation;
+                                            state.set_busy(false);
+                                            state.last_error = None;
+                                            state.input.hint = Some(format!("resumed {}", r.describe()));
+                                        }
+                                        Err(e) => state.set_error(format!("/resume: {e}")),
                                     },
-                                    Err(e) => state.set_error(format!("/model: {e}")),
+                                },
+                                "vim" => {
+                                    if state.input.vim.is_some() {
+                                        state.input.vim = None;
+                                        state.input.hint = Some("vim editing off".into());
+                                    } else {
+                                        state.input.enable_vim();
+                                    }
                                 }
+                                "mode" => match arnes_loop::permission::PermissionMode::parse(args.trim()) {
+                                    Ok(m) => {
+                                        live.gate.set_mode(m);
+                                        state.permission_mode = m.name().into();
+                                    }
+                                    Err(e) => state.set_error(e),
+                                },
+                                "mcp" => {
+                                    let health = match ticking.as_ref() {
+                                        Some(t) => t.health().await,
+                                        None => None,
+                                    };
+                                    state.mcp = Some(mcp_browser(&live.cfg, &live.pool, health.as_ref()).with_keymap(&state.nav_menu));
+                                }
+                                "notices" => state.panel = Some(("notices".into(), state.notice_lines())),
+                                "profile" if args.trim().is_empty() => {
+                                    let mut choices = live.file.profile_choices();
+                                    choices.push(("-".into(), "no profile: the file alone".into()));
+                                    let choices = choices.into_iter().map(|(n, d)| {
+                                        let mark = if live.profile.as_deref() == Some(n.as_str()) { "\u{2022}" } else { " " };
+                                        (n.clone(), format!("{mark} {n:<16} {d}"))
+                                    });
+                                    state.input.open_choice_picker("profile", choices.collect());
+                                }
+                                "profile" => live.switch_profile(&args, &mut state, &reapply),
+                                "model" => {
+                                    let pick = args.trim();
+                                    let catalog = model_catalog(&live.base, live.knobs.catalog_max_age).await;
+                                    if pick.is_empty() {
+                                        state.input.open_model_picker(model_choices(&live.base, &live.cfg, catalog.as_ref()));
+                                    } else {
+                                        // The conversation moves with the switch: same
+                                        // messages, same prompt, the next turn on the new route.
+                                        match switch_model(&live.base, &live.cfg, pick, catalog.as_ref()) {
+                                            Ok(next) => match live.switch_route(&next, &mut state) {
+                                                Ok(refused) => {
+                                                    state.conversation.system = system_prompt(&next, &live.skills).0;
+                                                    state.input.hint = Some(format!("now talking to {} on {}", next.model(), next.provedor));
+                                                    if !refused.is_empty() {
+                                                        state.set_error(format!("route skipped: {}", refused.join("; ")));
+                                                    }
+                                                    live.cfg = next;
+                                                    live.route_source = "manual";
+                                                    probe_local(&live.cfg);
+                                                }
+                                                Err(e) => state.set_error(format!("/model: {e}")),
+                                            },
+                                            Err(e) => state.set_error(format!("/model: {e}")),
+                                        }
+                                    }
+                                }
+                                other => state.set_error(format!("unknown command /{other}")),
                             }
                         }
-                        other => state.set_error(format!("unknown command /{other}")),
-                    } }
                     }
                     Effect::CycleMode => {
                         let next = live.gate.mode().next();
@@ -1744,9 +1659,7 @@ async fn run_tui(
         let t = ledger.totals();
         let usage = arnes_tui::UsageView {
             calls: t.calls,
-            prompt_tokens: u64::from(t.usage.input_tokens)
-                + u64::from(t.usage.cache_read_input_tokens.unwrap_or(0))
-                + u64::from(t.usage.cache_creation_input_tokens.unwrap_or(0)),
+            prompt_tokens: u64::from(t.usage.input_tokens) + u64::from(t.usage.cache_read_input_tokens.unwrap_or(0)) + u64::from(t.usage.cache_creation_input_tokens.unwrap_or(0)),
             output_tokens: u64::from(t.usage.output_tokens),
             cache_hit_ratio: t.cache_hit_ratio(),
             cost_usd: t.cost_usd,
@@ -1849,7 +1762,6 @@ fn emit(bytes: &[u8]) {
     let _ = out.flush();
 }
 
-
 /// The tools sent every turn: the built-ins (a fixed, sorted block) then
 /// the MCP exposure — computed once, so the request prefix never drifts.
 fn session_tools(cfg: &ArnesConfig, pool: &McpPool, skills: &arnes_tools::skills::Skills) -> Result<Vec<arnes_core::Tool>> {
@@ -1884,8 +1796,7 @@ fn blue_tools(cfg: &ArnesConfig) -> arnes_blue::Tools {
 /// shadows a built-in or an earlier declaration.
 fn blue_commands_checked(cfg: &ArnesConfig) -> (Vec<arnes_config::CommandDecl>, Vec<String>) {
     // A module command may be replaced by name; a kernel command may not.
-    let reserved: Vec<&str> =
-        arnes_tui::COMMANDS.iter().map(|(n, _)| *n).filter(|n| !arnes_blue::bidamas::KERNEL_TWINS.contains(n)).collect();
+    let reserved: Vec<&str> = arnes_tui::COMMANDS.iter().map(|(n, _)| *n).filter(|n| !arnes_blue::bidamas::KERNEL_TWINS.contains(n)).collect();
     cfg.blue_commands(&reserved)
 }
 
@@ -1895,12 +1806,7 @@ fn blue_commands(cfg: &ArnesConfig) -> Vec<arnes_config::CommandDecl> {
 
 /// Every refused blue declaration, as a warning toast each.
 fn report_blue_refusals(cfg: &ArnesConfig) {
-    let refused = blue_tools_checked(cfg)
-        .1
-        .into_iter()
-        .chain(blue_commands_checked(cfg).1)
-        .chain(cfg.blue_hooks().1)
-        .chain(cfg.blue_vigies().1);
+    let refused = blue_tools_checked(cfg).1.into_iter().chain(blue_commands_checked(cfg).1).chain(cfg.blue_hooks().1).chain(cfg.blue_vigies().1);
     for r in refused {
         tracing::warn!("{r}; skipped");
     }
@@ -1909,11 +1815,7 @@ fn report_blue_refusals(cfg: &ArnesConfig) {
 /// The vigy runtime for host `arnes`, when any vigy is declared, and the
 /// task that probes the MCP servers on the vigies' cadence so each tick
 /// reads fresh facts without probing itself.
-async fn start_vigies(
-    cfg: &ArnesConfig,
-    hosted: &arnes_blue::bidamas::Registry,
-    facts: arnes_vigy::Facts,
-) -> Option<arnes_vigy::Ticking> {
+async fn start_vigies(cfg: &ArnesConfig, hosted: &arnes_blue::bidamas::Registry, facts: arnes_vigy::Facts) -> Option<arnes_vigy::Ticking> {
     let decls = all_vigies(cfg, hosted);
     if decls.is_empty() {
         return None;
@@ -2010,15 +1912,7 @@ fn run_std_command(
     let snapshot = state_snapshot(state);
     let (cmd, args, hosted) = (name.to_owned(), args.to_owned(), hosted.clone());
     let outcome = arnes_blue::within_budget(&format!("/{name}"), budget, move || {
-        let ctx = arnes_blue::Context {
-            conversation: &conversation,
-            bindings: &bindings,
-            notices: &notices,
-            state: &snapshot,
-            sessions: &sessions,
-            read_roots: &read_roots,
-            reach: None,
-        };
+        let ctx = arnes_blue::Context { conversation: &conversation, bindings: &bindings, notices: &notices, state: &snapshot, sessions: &sessions, read_roots: &read_roots, reach: None };
         hosted.command(&arnes_blue::bidamas::BidamaPath::from_env(), &cmd, &args, ctx)
     });
     apply_command_outcome(state, &format!("/{name}"), outcome)
@@ -2034,11 +1928,7 @@ fn module_budget(cfg: &ArnesConfig) -> Duration {
 /// toast naming the command and the stage. Returns the kernel commands the
 /// program asked for (`arnes_clear()`, `arnes_exit()`), in order, for the
 /// caller to run through the kernel's own arms.
-fn apply_command_outcome(
-    state: &mut TuiState,
-    name: &str,
-    outcome: Result<arnes_blue::Outcome, arnes_blue::ExtError>,
-) -> Vec<(String, String)> {
+fn apply_command_outcome(state: &mut TuiState, name: &str, outcome: Result<arnes_blue::Outcome, arnes_blue::ExtError>) -> Vec<(String, String)> {
     let mut kernel = Vec::new();
     match outcome {
         Ok(outcome) => {
@@ -2186,8 +2076,7 @@ fn setting_arm(state: &TuiState, key: &str, value: &str) -> Result<Option<(Strin
             "on" | "off" => Ok(Some(("vim".into(), String::new()))),
             other => Err(format!("vim takes on | off, not {other:?}")),
         },
-        "permission-mode" => arnes_loop::permission::PermissionMode::parse(value.trim())
-            .map(|_| Some(("mode".into(), value.trim().to_owned()))),
+        "permission-mode" => arnes_loop::permission::PermissionMode::parse(value.trim()).map(|_| Some(("mode".into(), value.trim().to_owned()))),
         other => Err(format!("no setting {other:?}")),
     }
 }
@@ -2215,16 +2104,8 @@ fn host_bidamas(cfg: &ArnesConfig, state: &mut TuiState) -> arnes_blue::bidamas:
 
 /// The `/` picker's extension rows: hosted commands not configured off, then
 /// user commands, a user command replacing a hosted one of its name.
-fn picker_commands(
-    cfg: &ArnesConfig,
-    hosted: &arnes_blue::bidamas::Registry,
-    user: &[arnes_config::CommandDecl],
-) -> Vec<(String, String)> {
-    let mut rows: Vec<(String, String)> = hosted
-        .commands()
-        .into_iter()
-        .filter(|(n, _)| !user.iter().any(|u| &u.name == n) && serve(n, &[], hosted, cfg) != Serve::Off)
-        .collect();
+fn picker_commands(cfg: &ArnesConfig, hosted: &arnes_blue::bidamas::Registry, user: &[arnes_config::CommandDecl]) -> Vec<(String, String)> {
+    let mut rows: Vec<(String, String)> = hosted.commands().into_iter().filter(|(n, _)| !user.iter().any(|u| &u.name == n) && serve(n, &[], hosted, cfg) != Serve::Off).collect();
     rows.extend(user.iter().map(|c| (c.name.clone(), c.description.clone())));
     rows
 }
@@ -2238,12 +2119,7 @@ enum Serve<'a> {
     Off,
 }
 
-fn serve<'a>(
-    name: &str,
-    user: &'a [arnes_config::CommandDecl],
-    hosted: &arnes_blue::bidamas::Registry,
-    cfg: &ArnesConfig,
-) -> Serve<'a> {
+fn serve<'a>(name: &str, user: &'a [arnes_config::CommandDecl], hosted: &arnes_blue::bidamas::Registry, cfg: &ArnesConfig) -> Serve<'a> {
     if let Some(decl) = user.iter().find(|c| c.name == name) {
         return Serve::User(decl);
     }
@@ -2301,8 +2177,7 @@ fn std_segment(cfg: &ArnesConfig, hosted: &arnes_blue::bidamas::Registry, segmen
     }
     let (reg, name, arg) = (hosted.clone(), segment.to_owned(), arg.to_owned());
     let outcome = arnes_blue::within_budget(&format!("segment {segment}"), module_budget(cfg), move || {
-        reg.segment(&arnes_blue::bidamas::BidamaPath::from_env(), &name, &arg)
-            .map(|text| arnes_blue::Outcome { returned: arnes_blue::Returned::Text(text), effects: Vec::new() })
+        reg.segment(&arnes_blue::bidamas::BidamaPath::from_env(), &name, &arg).map(|text| arnes_blue::Outcome { returned: arnes_blue::Returned::Text(text), effects: Vec::new() })
     });
     match outcome.map(|o| o.text().to_owned()) {
         Ok(text) => Some(text),
@@ -2355,7 +2230,6 @@ fn with_builtins(cfg: &ArnesConfig, gate: GatedDispatcher, skills: &Arc<arnes_to
     gate.with_builtins(arnes_tools::Builtins::new(root).with_off(&cfg.modules_off)).with_guard(guard)
 }
 
-
 /// The primary provider's model catalogue, from the day-old cache when it
 /// can be; `None` for a provider without one or a failed refresh.
 async fn model_catalog(cfg: &ArnesConfig, max_age: Duration) -> Option<arnes_anthropic::catalog::Catalog> {
@@ -2390,19 +2264,20 @@ fn model_choices(base: &ArnesConfig, live: &ArnesConfig, catalog: Option<&arnes_
 /// Resolve a `/model` argument against the startup config: `route:N`, a
 /// route label or provider name, `model:<id>` or a bare model id (checked
 /// against the catalogue when there is one).
-fn switch_model(
-    base: &ArnesConfig,
-    live: &ArnesConfig,
-    pick: &str,
-    catalog: Option<&arnes_anthropic::catalog::Catalog>,
-) -> std::result::Result<ArnesConfig, String> {
-    let route = |i: usize| if i == 0 { Ok(base.clone()) } else if i <= base.fallbacks.len() { Ok(base.switch_to(i - 1)) } else { Err(format!("no route {i}")) };
+fn switch_model(base: &ArnesConfig, live: &ArnesConfig, pick: &str, catalog: Option<&arnes_anthropic::catalog::Catalog>) -> std::result::Result<ArnesConfig, String> {
+    let route = |i: usize| {
+        if i == 0 {
+            Ok(base.clone())
+        } else if i <= base.fallbacks.len() {
+            Ok(base.switch_to(i - 1))
+        } else {
+            Err(format!("no route {i}"))
+        }
+    };
     if let Some(n) = pick.strip_prefix("route:") {
         return route(n.parse().map_err(|_| format!("bad route {n:?}"))?);
     }
-    let labelled = std::iter::once(base.primary_route())
-        .chain(base.fallbacks.iter().cloned())
-        .position(|r| r.label.as_deref() == Some(pick) || r.provedor == pick);
+    let labelled = std::iter::once(base.primary_route()).chain(base.fallbacks.iter().cloned()).position(|r| r.label.as_deref() == Some(pick) || r.provedor == pick);
     if let Some(i) = labelled {
         return route(i);
     }
@@ -2422,10 +2297,7 @@ fn mcp_browser(cfg: &ArnesConfig, pool: &McpPool, health: Option<&arnes_vigy::He
     let registry = cfg.to_mcp_registry();
     let log_dir = notice::mcp_log_dir();
     let entry = |name: &str, status: ServerStatus| {
-        let command = registry
-            .get(name)
-            .map(|s| std::iter::once(s.command.as_str()).chain(s.args.iter().map(String::as_str)).collect::<Vec<_>>().join(" "))
-            .unwrap_or_default();
+        let command = registry.get(name).map(|s| std::iter::once(s.command.as_str()).chain(s.args.iter().map(String::as_str)).collect::<Vec<_>>().join(" ")).unwrap_or_default();
         let tools = pool
             .tools()
             .iter()
@@ -2440,24 +2312,13 @@ fn mcp_browser(cfg: &ArnesConfig, pool: &McpPool, health: Option<&arnes_vigy::He
                 })
             })
             .collect();
-        ServerEntry {
-            name: name.to_string(),
-            status,
-            command,
-            log: log_dir.as_ref().map(|d| d.join(format!("{name}.log")).display().to_string()),
-            tools,
-            health: health.and_then(|h| h.line(name)),
-        }
+        ServerEntry { name: name.to_string(), status, command, log: log_dir.as_ref().map(|d| d.join(format!("{name}.log")).display().to_string()), tools, health: health.and_then(|h| h.line(name)) }
     };
     let mut servers: Vec<ServerEntry> = pool.servers().into_iter().map(|s| entry(s, ServerStatus::Connected)).collect();
     servers.extend(pool.failures().iter().map(|(s, why)| entry(s, ServerStatus::Failed(why.clone()))));
     servers.sort_by(|a, b| a.name.cmp(&b.name));
-    let builtin = format!(
-        "built-in: {}  ·  {} MCP tools from {} server(s)",
-        if cfg.builtin_tools.unwrap_or(true) { "Bash Edit Glob Grep Read Write" } else { "off" },
-        pool.tools().len(),
-        pool.servers().len()
-    );
+    let builtin =
+        format!("built-in: {}  ·  {} MCP tools from {} server(s)", if cfg.builtin_tools.unwrap_or(true) { "Bash Edit Glob Grep Read Write" } else { "off" }, pool.tools().len(), pool.servers().len());
     arnes_tui::McpBrowser::new(servers, builtin)
 }
 
@@ -2570,7 +2431,6 @@ async fn connect_mcp(cfg: &ArnesConfig, knobs: arnes_config::Knobs) -> Result<Mc
     tracing::info!(servers = ?pool.servers(), tools = pool.tools().len(), "MCP connected");
     Ok(pool)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -2695,14 +2555,7 @@ mod tests {
         assert!(!names(&off).contains(&"Bash".to_owned()));
         assert!(names(&off).contains(&"Read".to_owned()));
         let tool = |cfg: ArnesConfig| ArnesConfig {
-            tools: vec![arnes_config::ToolDecl {
-                name: "Bash".into(),
-                description: String::new(),
-                blue: "b.b".into(),
-                r#fn: "run".into(),
-                schema: None,
-                read_only: None,
-            }],
+            tools: vec![arnes_config::ToolDecl { name: "Bash".into(), description: String::new(), blue: "b.b".into(), r#fn: "run".into(), schema: None, read_only: None }],
             ..cfg
         };
         assert_eq!(blue_tools_checked(&tool(off)).1.len(), 0);
@@ -2766,7 +2619,8 @@ mod tests {
         assert!(at("You are arnes.") < at("never pangea") && at("never pangea") < at("Be terse.") && at("Be terse.") < at("- bidama: blue packages"));
         assert_eq!(notes.len(), 2, "the big file and the one outside the roots are named: {notes:?}");
         assert!(notes.iter().any(|n| n.contains("over 1 KiB")) && notes.iter().any(|n| n.contains("/etc/hosts")));
-        let bare = system_prompt(&ArnesConfig { context: arnes_config::ContextSection { discover: Some(false), ..Default::default() }, ..ArnesConfig::default() }, &arnes_tools::skills::Skills::default());
+        let bare =
+            system_prompt(&ArnesConfig { context: arnes_config::ContextSection { discover: Some(false), ..Default::default() }, ..ArnesConfig::default() }, &arnes_tools::skills::Skills::default());
         assert_eq!(bare, (None, vec![]), "nothing configured, nothing added");
         let off = ArnesConfig { skills: arnes_config::SkillsSection { enabled: Some(false), ..cfg.skills.clone() }, ..cfg };
         assert!(session_skills(&off, &arnes_blue::bidamas::Registry::default()).0.is_empty());
@@ -2921,7 +2775,8 @@ mod live_tests {
     use arnes_anthropic::testing::one_shot_server;
     use arnes_config::{KeyEdits, KeysSection, NavKeysSection, RouteDecl, UiSection};
 
-    const THINKING_REPLY: &str = r#"{"id":"a","type":"message","role":"assistant","model":"local","content":[{"type":"thinking","thinking":"hmm","signature":""},{"type":"text","text":"pong-a"}],"stop_reason":"end_turn"}"#;
+    const THINKING_REPLY: &str =
+        r#"{"id":"a","type":"message","role":"assistant","model":"local","content":[{"type":"thinking","thinking":"hmm","signature":""},{"type":"text","text":"pong-a"}],"stop_reason":"end_turn"}"#;
     const PLAIN_REPLY: &str = r#"{"id":"b","type":"message","role":"assistant","model":"claude-opus-5-5","content":[{"type":"text","text":"pong-b"}],"stop_reason":"end_turn"}"#;
 
     #[test]
@@ -3103,16 +2958,8 @@ mod live_tests {
         state.input.set_text("draft");
         let (mcp_tx, mut mcp_rx) = mpsc::unbounded_channel();
         let next = ArnesConfig {
-            ui: UiSection {
-                motion: Some("off".into()),
-                theme: Some("vellum".into()),
-                timing: arnes_config::TimingSection { frame_rate: Some(30), ..Default::default() },
-                ..UiSection::default()
-            },
-            keys: KeysSection {
-                prompt: KeyEdits { bind: vec![("ctrl+q".into(), "app:exit".into())], unbind: vec![] },
-                nav: NavKeysSection::default(),
-            },
+            ui: UiSection { motion: Some("off".into()), theme: Some("vellum".into()), timing: arnes_config::TimingSection { frame_rate: Some(30), ..Default::default() }, ..UiSection::default() },
+            keys: KeysSection { prompt: KeyEdits { bind: vec![("ctrl+q".into(), "app:exit".into())], unbind: vec![] }, nav: NavKeysSection::default() },
             mcp_servers: vec![arnes_config::McpServerDecl {
                 nome: "ghost".into(),
                 command: "/nonexistent/arnes-mcp".into(),

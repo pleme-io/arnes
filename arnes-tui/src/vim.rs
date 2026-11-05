@@ -107,9 +107,7 @@ impl VimHost {
                 self.operate_object(editor, *op, *object);
                 VimOutcome::None
             }
-            Action::ChangeMode(Mode::Visual | Mode::VisualLine) => VimOutcome::Unsupported(
-                "visual mode arrives with multi-row unsoku (docs/tui-parity.md §4.8.1)".into(),
-            ),
+            Action::ChangeMode(Mode::Visual | Mode::VisualLine) => VimOutcome::Unsupported("visual mode arrives with multi-row unsoku (docs/tui-parity.md §4.8.1)".into()),
             Action::ChangeMode(mode) => {
                 self.modal.enter(*mode);
                 if *mode == Mode::Normal {
@@ -382,11 +380,7 @@ impl VimInput {
     /// Feed one key; return what the TUI must do (empty when handled).
     pub fn key(&mut self, editor: &mut TextArea, key: &Key) -> Vec<VimOutcome> {
         let steps = self.pipeline.feed(&mut self.host.modal, key);
-        steps
-            .into_iter()
-            .map(|(action, n)| self.step(editor, &action, n))
-            .filter(|o| *o != VimOutcome::None)
-            .collect()
+        steps.into_iter().map(|(action, n)| self.step(editor, &action, n)).filter(|o| *o != VimOutcome::None).collect()
     }
 
     fn step(&mut self, editor: &mut TextArea, action: &Action, n: u32) -> VimOutcome {

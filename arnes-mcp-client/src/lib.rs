@@ -78,15 +78,7 @@ pub struct ServerSpec {
 impl ServerSpec {
     #[must_use]
     pub fn simple(name: impl Into<String>, command: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            command: command.into(),
-            args: Vec::new(),
-            env: HashMap::new(),
-            cwd: None,
-            required: false,
-            lazy: false,
-        }
+        Self { name: name.into(), command: command.into(), args: Vec::new(), env: HashMap::new(), cwd: None, required: false, lazy: false }
     }
 
     /// What makes two declarations the same server: the command, its
@@ -204,11 +196,7 @@ pub struct ToolOutcome {
 impl ToolOutcome {
     #[must_use]
     pub fn into_result(self) -> ToolResult {
-        ToolResult {
-            tool_use_id: self.tool_use_id,
-            content: self.content,
-            is_error: self.is_error,
-        }
+        ToolResult { tool_use_id: self.tool_use_id, content: self.content, is_error: self.is_error }
     }
 }
 
@@ -225,38 +213,10 @@ pub fn from_anvil_json(input: &serde_json::Value) -> McpRegistry {
         return reg;
     };
     for (name, def) in servers {
-        let command = def
-            .get("command")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let args = def
-            .get("args")
-            .and_then(|v| v.as_array())
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.as_str().map(ToString::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
-        let env = def
-            .get("env")
-            .and_then(|v| v.as_object())
-            .map(|m| {
-                m.iter()
-                    .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
-                    .collect()
-            })
-            .unwrap_or_default();
-        reg.register(ServerSpec {
-            name: name.clone(),
-            command,
-            args,
-            env,
-            cwd: None,
-            required: false,
-            lazy: false,
-        });
+        let command = def.get("command").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+        let args = def.get("args").and_then(|v| v.as_array()).map(|a| a.iter().filter_map(|v| v.as_str().map(ToString::to_string)).collect()).unwrap_or_default();
+        let env = def.get("env").and_then(|v| v.as_object()).map(|m| m.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect()).unwrap_or_default();
+        reg.register(ServerSpec { name: name.clone(), command, args, env, cwd: None, required: false, lazy: false });
     }
     reg
 }
@@ -283,7 +243,9 @@ pub enum Exposure {
     All,
     Deferred,
     /// `All` up to `max_inline` tools, `Deferred` beyond.
-    Auto { max_inline: usize },
+    Auto {
+        max_inline: usize,
+    },
 }
 
 impl Exposure {
@@ -319,9 +281,7 @@ pub fn split_name(name: &str) -> Option<(&str, &str)> {
 }
 
 fn valid_wire_name(name: &str) -> bool {
-    !name.is_empty()
-        && name.len() <= MAX_TOOL_NAME
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    !name.is_empty() && name.len() <= MAX_TOOL_NAME && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 type Client = RunningService<RoleClient, ()>;
@@ -410,15 +370,7 @@ impl McpPool {
     /// A pool with no servers — tools off.
     #[must_use]
     pub fn empty() -> Self {
-        Self {
-            clients: BTreeMap::new(),
-            tools: Vec::new(),
-            read_only: HashMap::new(),
-            failures: Vec::new(),
-            skipped: Vec::new(),
-            dormant: BTreeMap::new(),
-            call_timeout: Duration::from_secs(120),
-        }
+        Self { clients: BTreeMap::new(), tools: Vec::new(), read_only: HashMap::new(), failures: Vec::new(), skipped: Vec::new(), dormant: BTreeMap::new(), call_timeout: Duration::from_secs(120) }
     }
 
     /// A copy sharing every connection.
@@ -467,10 +419,7 @@ impl McpPool {
 
     /// Record `spec` as dormant: listed, started on its first call.
     pub fn add_dormant(&mut self, spec: ServerSpec, timeout: Duration, stderr_dir: Option<PathBuf>) {
-        self.dormant.insert(
-            spec.name.clone(),
-            std::sync::Arc::new(Dormant { spec, timeout, stderr_dir, woken: tokio::sync::OnceCell::new() }),
-        );
+        self.dormant.insert(spec.name.clone(), std::sync::Arc::new(Dormant { spec, timeout, stderr_dir, woken: tokio::sync::OnceCell::new() }));
     }
 
     /// The dormant servers' names, woken or not.
@@ -518,11 +467,8 @@ impl McpPool {
     /// connected answers from its failure, or as dormant, without a request.
     pub async fn probe_one(&self, server: &str, timeout: Duration) -> Probe {
         let Some(client) = self.clients.get(server).cloned().or_else(|| self.woken(server).map(|(c, _)| c.clone())) else {
-            let error = self
-                .failures
-                .iter()
-                .find(|(n, _)| n == server)
-                .map_or_else(|| if self.dormant.contains_key(server) { "dormant".to_owned() } else { "not configured".to_owned() }, |(_, w)| w.clone());
+            let error =
+                self.failures.iter().find(|(n, _)| n == server).map_or_else(|| if self.dormant.contains_key(server) { "dormant".to_owned() } else { "not configured".to_owned() }, |(_, w)| w.clone());
             return Probe { server: server.to_owned(), up: false, latency_ms: None, tools: 0, error: Some(error) };
         };
         let start = std::time::Instant::now();
@@ -549,11 +495,7 @@ impl McpPool {
             .get_or_init(|| async {
                 let a = Self::connect_server(d.spec.clone(), d.timeout, d.stderr_dir.as_deref()).await;
                 a.result.map(|(c, tools)| {
-                    let tools = tools
-                        .into_iter()
-                        .map(|t| to_tool(qualified_name(server, &t.name), t))
-                        .filter(|t| valid_wire_name(&t.name))
-                        .collect();
+                    let tools = tools.into_iter().map(|t| to_tool(qualified_name(server, &t.name), t)).filter(|t| valid_wire_name(&t.name)).collect();
                     (c, tools)
                 })
             })
@@ -578,11 +520,7 @@ impl McpPool {
     ///
     /// # Errors
     /// As [`Self::connect`].
-    pub async fn connect_logging(
-        registry: &McpRegistry,
-        connect_timeout: Duration,
-        stderr_dir: Option<std::path::PathBuf>,
-    ) -> Result<Self> {
+    pub async fn connect_logging(registry: &McpRegistry, connect_timeout: Duration, stderr_dir: Option<std::path::PathBuf>) -> Result<Self> {
         let mut pool = Self::empty();
         let (lazy, eager): (Vec<_>, Vec<_>) = registry.servers.iter().cloned().partition(|s| s.lazy);
         for spec in lazy {
@@ -595,13 +533,7 @@ impl McpPool {
     /// Start `specs` concurrently and add what they list. A failure is
     /// recorded in [`Self::failures`]; with `fail_required`, a `required`
     /// server's failure is returned instead.
-    async fn attach(
-        &mut self,
-        specs: &[ServerSpec],
-        connect_timeout: Duration,
-        stderr_dir: Option<&std::path::Path>,
-        fail_required: bool,
-    ) -> Result<()> {
+    async fn attach(&mut self, specs: &[ServerSpec], connect_timeout: Duration, stderr_dir: Option<&std::path::Path>, fail_required: bool) -> Result<()> {
         let attempts = specs.iter().map(|spec| Self::connect_server(spec.clone(), connect_timeout, stderr_dir));
         for Arrival { spec, result } in futures::future::join_all(attempts).await {
             if let Err(message) = &result
@@ -624,13 +556,7 @@ impl McpPool {
     /// pool (its process ends when the last pool holding it goes). A server
     /// that failed before and is unchanged is not retried. A `required`
     /// server that fails here is recorded, not fatal: the session is running.
-    pub async fn reconcile(
-        &self,
-        previous: &McpRegistry,
-        next: &McpRegistry,
-        connect_timeout: Duration,
-        stderr_dir: Option<&std::path::Path>,
-    ) -> (Self, Reconciled) {
+    pub async fn reconcile(&self, previous: &McpRegistry, next: &McpRegistry, connect_timeout: Duration, stderr_dir: Option<&std::path::Path>) -> (Self, Reconciled) {
         let unchanged = |spec: &ServerSpec| previous.get(&spec.name) == Some(spec);
         let mut pool = Self::empty();
         pool.call_timeout = self.call_timeout;
@@ -650,26 +576,25 @@ impl McpPool {
                 }
                 continue;
             }
-            if unchanged(spec) && let Some(client) = self.clients.get(&spec.name) {
+            if unchanged(spec)
+                && let Some(client) = self.clients.get(&spec.name)
+            {
                 pool.clients.insert(spec.name.clone(), client.clone());
                 let mine = |wire: &str| split_name(wire).is_some_and(|(srv, _)| srv == spec.name);
                 pool.tools.extend(self.tools.iter().filter(|t| mine(&t.name)).cloned());
                 pool.read_only.extend(self.read_only.iter().filter(|(w, _)| mine(w)).map(|(w, r)| (w.clone(), *r)));
                 pool.skipped.extend(self.skipped.iter().filter(|w| mine(w)).cloned());
                 report.kept.push(spec.name.clone());
-            } else if unchanged(spec) && let Some(f) = self.failures.iter().find(|(n, _)| *n == spec.name) {
+            } else if unchanged(spec)
+                && let Some(f) = self.failures.iter().find(|(n, _)| *n == spec.name)
+            {
                 pool.failures.push(f.clone());
                 report.kept.push(spec.name.clone());
             } else {
                 start.push(spec.clone());
             }
         }
-        report.stopped = self
-            .clients
-            .keys()
-            .filter(|name| !pool.clients.contains_key(*name))
-            .cloned()
-            .collect();
+        report.stopped = self.clients.keys().filter(|name| !pool.clients.contains_key(*name)).cloned().collect();
         let before: Vec<String> = pool.failures.iter().map(|(n, _)| n.clone()).collect();
         // Never fails: `fail_required` is off.
         let _ = pool.attach(&start, connect_timeout, stderr_dir, false).await;
@@ -699,13 +624,7 @@ impl McpPool {
             Probe { server: name.clone(), up, latency_ms: Some(latency_ms), tools, error }
         });
         let mut out: Vec<Probe> = futures::future::join_all(live).await;
-        out.extend(self.failures.iter().map(|(server, why)| Probe {
-            server: server.clone(),
-            up: false,
-            latency_ms: None,
-            tools: 0,
-            error: Some(why.clone()),
-        }));
+        out.extend(self.failures.iter().map(|(server, why)| Probe { server: server.clone(), up: false, latency_ms: None, tools: 0, error: Some(why.clone()) }));
         out.sort_by(|a, b| a.server.cmp(&b.server));
         out
     }
@@ -733,11 +652,7 @@ impl McpPool {
             Exposure::Auto { max_inline } => self.tools.len() > max_inline,
         };
         let dormant = self.dormant.keys().cloned().collect::<Vec<_>>().join(", ");
-        let dormant_note = if dormant.is_empty() {
-            String::new()
-        } else {
-            format!(" Dormant servers, started by their first call: {dormant}; an unknown tool name on one lists its tools.")
-        };
+        let dormant_note = if dormant.is_empty() { String::new() } else { format!(" Dormant servers, started by their first call: {dormant}; an unknown tool name on one lists its tools.") };
         let call_tool = Tool {
             name: CALL_TOOL.into(),
             description: format!(
@@ -858,8 +773,7 @@ impl McpPool {
             }
             _ => {}
         }
-        let (server, tool) =
-            split_name(wire_name).ok_or_else(|| McpError::UnknownTool(wire_name.into()))?;
+        let (server, tool) = split_name(wire_name).ok_or_else(|| McpError::UnknownTool(wire_name.into()))?;
         let client = match self.clients.get(server) {
             Some(c) => c,
             None => match self.wake(server).await {
@@ -868,10 +782,7 @@ impl McpPool {
                 Some(Ok((c, tools))) => {
                     if !tools.iter().any(|t| t.name == wire_name) {
                         let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-                        return Err(McpError::ServerError {
-                            server: server.into(),
-                            message: format!("no tool {tool:?}; it serves {}", names.join(", ")),
-                        });
+                        return Err(McpError::ServerError { server: server.into(), message: format!("no tool {tool:?}; it serves {}", names.join(", ")) });
                     }
                     c
                 }
@@ -881,18 +792,10 @@ impl McpPool {
             serde_json::Value::Object(m) => Some(m.clone()),
             serde_json::Value::Null => None,
             other => {
-                return Err(McpError::ServerError {
-                    server: server.into(),
-                    message: format!("tool input must be a JSON object, got {other}"),
-                });
+                return Err(McpError::ServerError { server: server.into(), message: format!("tool input must be a JSON object, got {other}") });
             }
         };
-        let call = client.call_tool(CallToolRequestParams {
-            name: tool.to_owned().into(),
-            arguments,
-            meta: None,
-            task: None,
-        });
+        let call = client.call_tool(CallToolRequestParams { name: tool.to_owned().into(), arguments, meta: None, task: None });
         let result = tokio::time::timeout(self.call_timeout, call)
             .await
             .map_err(|_| McpError::Timeout { server: server.into(), secs: self.call_timeout.as_secs() })?
@@ -916,10 +819,7 @@ impl McpPool {
 impl McpPool {
     fn search_json(&self, input: &serde_json::Value) -> String {
         let query = input.get("query").and_then(serde_json::Value::as_str).unwrap_or_default();
-        let limit = input
-            .get("limit")
-            .and_then(serde_json::Value::as_u64)
-            .map_or(8, |n| usize::try_from(n).unwrap_or(25));
+        let limit = input.get("limit").and_then(serde_json::Value::as_u64).map_or(8, |n| usize::try_from(n).unwrap_or(25));
         let hits: Vec<serde_json::Value> = self
             .search(query, limit)
             .into_iter()
@@ -947,11 +847,7 @@ impl McpPool {
 }
 
 fn to_tool(wire: String, t: rmcp::model::Tool) -> Tool {
-    Tool {
-        name: wire,
-        description: t.description.map(|d| d.to_string()).unwrap_or_default(),
-        input_schema: ToolInputSchema(serde_json::Value::Object((*t.input_schema).clone())),
-    }
+    Tool { name: wire, description: t.description.map(|d| d.to_string()).unwrap_or_default(), input_schema: ToolInputSchema(serde_json::Value::Object((*t.input_schema).clone())) }
 }
 
 /// Where a server's stderr goes: its log file when one can be opened,
@@ -964,19 +860,13 @@ fn stderr_for(dir: Option<&std::path::Path>, server: &str) -> std::process::Stdi
     .map_or_else(std::process::Stdio::null, std::process::Stdio::from)
 }
 
-async fn connect_one(
-    spec: &ServerSpec,
-    stderr_dir: Option<&std::path::Path>,
-) -> std::result::Result<(Client, Vec<rmcp::model::Tool>), String> {
+async fn connect_one(spec: &ServerSpec, stderr_dir: Option<&std::path::Path>) -> std::result::Result<(Client, Vec<rmcp::model::Tool>), String> {
     let mut cmd = tokio::process::Command::new(&spec.command);
     cmd.args(&spec.args).envs(&spec.env);
     if let Some(dir) = &spec.cwd {
         cmd.current_dir(dir);
     }
-    let (transport, _) = TokioChildProcess::builder(cmd)
-        .stderr(stderr_for(stderr_dir, &spec.name))
-        .spawn()
-        .map_err(|e| format!("spawn {}: {e}", spec.command))?;
+    let (transport, _) = TokioChildProcess::builder(cmd).stderr(stderr_for(stderr_dir, &spec.name)).spawn().map_err(|e| format!("spawn {}: {e}", spec.command))?;
     let client = ().serve(transport).await.map_err(|e| format!("handshake: {e}"))?;
     let tools = client.list_all_tools().await.map_err(|e| format!("tools/list: {e}"))?;
     Ok((client, tools))
@@ -1015,19 +905,12 @@ mod tests {
         assert_eq!(reg.servers.len(), 2);
         let escriba = reg.get("escriba-mcp").unwrap();
         assert!(escriba.command.ends_with("escriba-mcp"));
-        assert_eq!(
-            escriba.env.get("RUST_LOG").map(String::as_str),
-            Some("info")
-        );
+        assert_eq!(escriba.env.get("RUST_LOG").map(String::as_str), Some("info"));
     }
 
     #[test]
     fn tool_outcome_lifts_to_core_result() {
-        let out = ToolOutcome {
-            tool_use_id: "t1".into(),
-            content: "done".into(),
-            is_error: false,
-        };
+        let out = ToolOutcome { tool_use_id: "t1".into(), content: "done".into(), is_error: false };
         let r = out.into_result();
         assert_eq!(r.tool_use_id, "t1");
         assert!(!r.is_error);
@@ -1089,27 +972,17 @@ mod tests {
         let mut spec = ServerSpec::simple("must", "/nonexistent/arnes-test-mcp");
         spec.required = true;
         reg.register(spec);
-        assert!(matches!(
-            McpPool::connect(&reg, Duration::from_secs(2)).await,
-            Err(McpError::RequiredFailed { .. })
-        ));
+        assert!(matches!(McpPool::connect(&reg, Duration::from_secs(2)).await, Err(McpError::RequiredFailed { .. })));
     }
 
     #[tokio::test]
     async fn calling_an_unknown_tool_is_a_typed_error() {
         let pool = McpPool::empty();
-        assert!(matches!(
-            pool.call("mcp__nope__x", &serde_json::json!({})).await,
-            Err(McpError::UnknownTool(_))
-        ));
+        assert!(matches!(pool.call("mcp__nope__x", &serde_json::json!({})).await, Err(McpError::UnknownTool(_))));
     }
 
     fn tool(name: &str, desc: &str) -> Tool {
-        Tool {
-            name: name.into(),
-            description: desc.into(),
-            input_schema: ToolInputSchema(serde_json::json!({"type": "object"})),
-        }
+        Tool { name: name.into(), description: desc.into(), input_schema: ToolInputSchema(serde_json::json!({"type": "object"})) }
     }
 
     fn many(n: usize) -> Vec<Tool> {

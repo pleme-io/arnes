@@ -53,29 +53,10 @@ pub fn keymaps(cfg: &arnes_config::ArnesConfig) -> (egaku::NavKeymap, egaku::Nav
 }
 
 /// Footer actions for a list you open things from.
-pub const LIST_FOOTER: &[NavAction] = &[
-    NavAction::Down,
-    NavAction::Up,
-    NavAction::Top,
-    NavAction::Bottom,
-    NavAction::Open,
-    NavAction::Back,
-    NavAction::Search,
-    NavAction::Yank,
-    NavAction::Close,
-];
+pub const LIST_FOOTER: &[NavAction] = &[NavAction::Down, NavAction::Up, NavAction::Top, NavAction::Bottom, NavAction::Open, NavAction::Back, NavAction::Search, NavAction::Yank, NavAction::Close];
 
 /// Footer actions for a list at the top level (nothing to go back to).
-pub const ROOT_LIST_FOOTER: &[NavAction] = &[
-    NavAction::Down,
-    NavAction::Up,
-    NavAction::Top,
-    NavAction::Bottom,
-    NavAction::Open,
-    NavAction::Search,
-    NavAction::Yank,
-    NavAction::Close,
-];
+pub const ROOT_LIST_FOOTER: &[NavAction] = &[NavAction::Down, NavAction::Up, NavAction::Top, NavAction::Bottom, NavAction::Open, NavAction::Search, NavAction::Yank, NavAction::Close];
 
 /// Footer actions for scrolling text.
 pub const PAGER_FOOTER: &[NavAction] = &[
@@ -93,16 +74,7 @@ pub const PAGER_FOOTER: &[NavAction] = &[
 ];
 
 /// Footer actions for scrolling text with a level above it.
-pub const DETAIL_FOOTER: &[NavAction] = &[
-    NavAction::Down,
-    NavAction::Up,
-    NavAction::Top,
-    NavAction::Bottom,
-    NavAction::Search,
-    NavAction::Back,
-    NavAction::Yank,
-    NavAction::Close,
-];
+pub const DETAIL_FOOTER: &[NavAction] = &[NavAction::Down, NavAction::Up, NavAction::Top, NavAction::Bottom, NavAction::Search, NavAction::Back, NavAction::Yank, NavAction::Close];
 
 /// Footer actions for a choice dialog.
 pub const CHOICE_FOOTER: &[NavAction] = &[NavAction::Down, NavAction::Up, NavAction::Open, NavAction::Dismiss];
@@ -164,7 +136,7 @@ pub(crate) mod testing {
 mod tests {
     use super::testing::event;
     use super::*;
-    use egaku::{MENU_BINDINGS, FILTER_BINDINGS};
+    use egaku::{FILTER_BINDINGS, MENU_BINDINGS};
 
     #[test]
     fn every_default_chord_is_deliverable_from_a_real_key_event() {
@@ -220,16 +192,8 @@ mod surfaces {
         st.motion = false;
         match s {
             S::Mcp => {
-                let servers = (0..40)
-                    .map(|i| crate::ServerEntry {
-                        name: format!("server-{i}"),
-                        status: crate::ServerStatus::Connected,
-                        command: "x".into(),
-                        log: None,
-                        tools: vec![],
-                        health: None,
-                    })
-                    .collect();
+                let servers =
+                    (0..40).map(|i| crate::ServerEntry { name: format!("server-{i}"), status: crate::ServerStatus::Connected, command: "x".into(), log: None, tools: vec![], health: None }).collect();
                 st.mcp = Some(crate::McpBrowser::new(servers, "built-in".into()));
             }
             S::Help => st.input.show_help = true,

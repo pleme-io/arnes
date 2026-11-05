@@ -100,10 +100,7 @@ pub fn facts(ask: &Ask<'_>, conversation_text: &str, now_ms: u128) -> String {
                 (Some(i), Some(o)) => json!({"in": i, "out": o, "cache": f.price_cache.unwrap_or(i)}),
                 _ => Value::Null,
             };
-            let h = health
-                .iter()
-                .find(|(l, _, _)| *l == r.label)
-                .map_or(json!({"verdict": "unknown", "age_ms": Value::Null}), |(_, v, age)| json!({"verdict": v, "age_ms": age}));
+            let h = health.iter().find(|(l, _, _)| *l == r.label).map_or(json!({"verdict": "unknown", "age_ms": Value::Null}), |(_, v, age)| json!({"verdict": v, "age_ms": age}));
             json!({
                 "label": r.label,
                 "provider": r.provider.name(),
@@ -162,10 +159,7 @@ pub struct Answer {
 #[must_use]
 pub fn answer(text: &str) -> Answer {
     match serde_json::from_str::<Value>(text) {
-        Ok(Value::Object(m)) => Answer {
-            route: m.get("route").and_then(Value::as_str).map(str::to_owned),
-            why: m.get("why").and_then(Value::as_str).map(str::to_owned),
-        },
+        Ok(Value::Object(m)) => Answer { route: m.get("route").and_then(Value::as_str).map(str::to_owned), why: m.get("why").and_then(Value::as_str).map(str::to_owned) },
         _ if text.trim().is_empty() => Answer { route: None, why: None },
         _ => Answer { route: Some(text.trim().to_owned()), why: None },
     }

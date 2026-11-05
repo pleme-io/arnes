@@ -28,22 +28,19 @@ pub mod salvage;
 pub mod sections;
 
 pub use sections::{
-    AccessSection, ActivitySection, CatalogSection, ContextSection, FreeRouteSection, KeyEdits, KeysSection, McpHealthSection,
-    HistorySection, McpSection, MentionsSection, NavKeysSection, NoticesSection, PersistenceSection, RegionsSection, RouteFacts, RouteSection, RoutingSection,
-    SkillsSection, TimingSection, TurnSection, UiSection,
+    AccessSection, ActivitySection, CatalogSection, ContextSection, FreeRouteSection, HistorySection, KeyEdits, KeysSection, McpHealthSection, McpSection, MentionsSection, NavKeysSection,
+    NoticesSection, PersistenceSection, RegionsSection, RouteFacts, RouteSection, RoutingSection, SkillsSection, TimingSection, TurnSection, UiSection,
 };
 
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use arnes_anthropic::catalog::Auth as CatalogAuth;
 use arnes_core::{EchoRule, Effort, ThinkingMode};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use tatara_lisp::DeriveTataraDomain;
 
 /// The top-level config, authorable in lisp / yaml / nix.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 // snake_case: shikumi lowers `:max-tokens` to `max_tokens`; camelCase silently dropped every multi-word key.
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes")]
@@ -301,9 +298,7 @@ pub struct ArnesConfig {
 /// One profile: a named overlay onto the config, applied over its parents
 /// (docs/profiles.md §2). `:config` holds any top-level keys and sections,
 /// written as in `(defarnes …)`; each is refused alone when it does not fit.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes-profile")]
 pub struct ProfileDecl {
@@ -319,9 +314,7 @@ pub struct ProfileDecl {
 }
 
 /// One extra HTTP header — `(:name "x-trace" :value "on")`.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 #[tatara(keyword = "defheader")]
 pub struct HeaderDecl {
     pub name: String,
@@ -332,9 +325,7 @@ pub struct HeaderDecl {
 /// The same provider facts as the top level; everything unset takes the
 /// provider's default, and the sampling/transport knobs are shared with the
 /// primary except the echo rule, which is always the route's own.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq, Default,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defroute")]
 pub struct RouteDecl {
@@ -374,9 +365,7 @@ pub struct RouteDecl {
 /// returns a string (shown as a hint) or `nil`. The keyword is prefixed
 /// because `defcommand`, `deftool` and `defhook` are already claimed in the
 /// fleet's keyword ledger (escriba, kura, frost).
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes-command")]
 pub struct CommandDecl {
@@ -393,9 +382,7 @@ pub struct CommandDecl {
 /// A vigy implemented in blue — `(defarnes-vigy :name "mcp-health" :blue
 /// "mcp-health.b" :fn "tick" :every-ms 5000)`. The function receives the MCP
 /// probe facts as a JSON string and returns the tick's one-line result.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes-vigy")]
 pub struct VigyDecl {
@@ -409,9 +396,7 @@ pub struct VigyDecl {
     pub every_ms: Option<u64>,
 }
 
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq, Default,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes-endpoint")]
 pub struct EndpointDecl {
@@ -468,9 +453,7 @@ impl CommandDecl {
 /// A model-callable tool implemented in blue — `(defarnes-tool :name "shout"
 /// :description "…" :blue "shout.b" :fn "shout" :schema "{…}" :read-only #t)`.
 /// The function receives the tool input as a JSON string.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes-tool")]
 pub struct ToolDecl {
@@ -512,9 +495,7 @@ impl ToolDecl {
 /// A hook implemented in blue — `(defarnes-hook :on "before-tool" :blue
 /// "hooks.b" :fn "guard")`. `:on` is `before-submit`, `after-turn` or
 /// `before-tool`.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defarnes-hook")]
 pub struct HookDecl {
@@ -661,17 +642,10 @@ nested_or_flat! {
 /// Read a key: the file if one is named, else the env var (`var` is the
 /// route's override or its provider's). Absent is `Ok(None)` only for a
 /// provider that takes no key.
-fn read_key(
-    provider: Provider,
-    file: Option<&PathBuf>,
-    var: Option<&str>,
-) -> Result<Option<cofre_secret::Secret>, String> {
+fn read_key(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Result<Option<cofre_secret::Secret>, String> {
     if let Some(path) = file {
-        let raw = std::fs::read_to_string(path)
-            .map_err(|e| format!("reading api-key-file {}: {e}", path.display()))?;
-        return cofre_secret::Secret::new(raw.trim())
-            .map(Some)
-            .map_err(|_| format!("api-key-file {} is empty", path.display()));
+        let raw = std::fs::read_to_string(path).map_err(|e| format!("reading api-key-file {}: {e}", path.display()))?;
+        return cofre_secret::Secret::new(raw.trim()).map(Some).map_err(|_| format!("api-key-file {} is empty", path.display()));
     }
     let var = var.unwrap_or(provider.key_env());
     match cofre_secret::Secret::from_env(var) {
@@ -930,9 +904,7 @@ impl Provider {
 
 /// One MCP server to launch — `defmcp-server` in Lisp, same shape as
 /// `arnes_mcp_client::ServerSpec` minus the typed paths.
-#[derive(
-    DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq,
-)]
+#[derive(DeriveTataraDomain, Serialize, Deserialize, schemars::JsonSchema, Debug, Clone, PartialEq)]
 // snake_case: shikumi lowers `:max-tokens` to `max_tokens`; camelCase silently dropped every multi-word key.
 #[serde(rename_all = "snake_case")]
 #[tatara(keyword = "defmcp-server")]
@@ -1004,8 +976,7 @@ impl ArnesConfig {
         if !self.modelo.is_empty() {
             return self.modelo.clone();
         }
-        self.provider()
-            .map_or_else(|_| String::new(), |p| p.default_model().to_string())
+        self.provider().map_or_else(|_| String::new(), |p| p.default_model().to_string())
     }
 
     /// The endpoint to call: explicit `:endpoint`, else the provider's.
@@ -1141,10 +1112,7 @@ impl ArnesConfig {
     #[must_use]
     pub fn reload_plan(&self, next: &Self) -> ReloadPlan {
         let before_tool = |c: &Self| c.hooks.iter().filter(|h| h.on == "before-tool").cloned().collect::<Vec<_>>();
-        let gate = self.builtin_tools != next.builtin_tools
-            || self.guardrail != next.guardrail
-            || self.tools != next.tools
-            || before_tool(self) != before_tool(next);
+        let gate = self.builtin_tools != next.builtin_tools || self.guardrail != next.guardrail || self.tools != next.tools || before_tool(self) != before_tool(next);
         let mut restart = Vec::new();
         if self.ledger_path() != next.ledger_path() {
             restart.push("persistence.ledger: this session keeps writing the usage file it opened, so its totals stay whole");
@@ -1248,16 +1216,7 @@ impl ArnesConfig {
     /// the file hot reload watches.
     #[must_use]
     pub fn discover_path() -> Option<PathBuf> {
-        shikumi::ConfigDiscovery::new("arnes")
-            .env_override("ARNES_CONFIG")
-            .formats(&[
-                shikumi::Format::Lisp,
-                shikumi::Format::Yaml,
-                shikumi::Format::Nix,
-                shikumi::Format::Toml,
-            ])
-            .discover()
-            .ok()
+        shikumi::ConfigDiscovery::new("arnes").env_override("ARNES_CONFIG").formats(&[shikumi::Format::Lisp, shikumi::Format::Yaml, shikumi::Format::Nix, shikumi::Format::Toml]).discover().ok()
     }
 
     #[must_use]
@@ -1307,10 +1266,7 @@ impl ArnesConfig {
     /// The file cannot be read or parsed at all.
     pub fn load_report(path: &std::path::Path) -> Result<Loaded, String> {
         let base = Self::base_tier();
-        let env: serde_json::Value = shikumi::ProviderChain::new()
-            .with_env(ENV_PREFIX)
-            .extract()
-            .unwrap_or(serde_json::Value::Null);
+        let env: serde_json::Value = shikumi::ProviderChain::new().with_env(ENV_PREFIX).extract().unwrap_or(serde_json::Value::Null);
         // `ARNES_CONFIG` and `ARNES_TIER` name the file and tier; they are not keys.
         let env = match env {
             serde_json::Value::Object(mut m) => {
@@ -1320,10 +1276,7 @@ impl ArnesConfig {
             }
             other => other,
         };
-        let file: serde_json::Value = shikumi::ProviderChain::new()
-            .with_file(path)
-            .extract()
-            .map_err(|e| e.to_string())?;
+        let file: serde_json::Value = shikumi::ProviderChain::new().with_file(path).extract().map_err(|e| e.to_string())?;
         let (with_env, env_refused) = salvage::salvage(&base, &env);
         let (config, file_refused) = salvage::salvage(&with_env, &file);
         let schema = Self::schema_value();
@@ -1347,10 +1300,7 @@ impl ArnesConfig {
         let effort = self.effort.as_deref().map(Effort::parse).transpose()?;
         let budget = match self.thinking_budget {
             Some(b) if !self.provider()?.honours_thinking_budget() => {
-                tracing::warn!(
-                    "thinking-budget {b} ignored — {} does not honour it; use :effort",
-                    self.provedor
-                );
+                tracing::warn!("thinking-budget {b} ignored — {} does not honour it; use :effort", self.provedor);
                 None
             }
             b => b,
@@ -1359,9 +1309,7 @@ impl ArnesConfig {
             Some("off") => Ok(ThinkingMode::Off),
             Some("on") => Ok(ThinkingMode::On { effort, budget }),
             // A configured budget asks for thinking even where it is dropped.
-            None if effort.is_some() || self.thinking_budget.is_some() => {
-                Ok(ThinkingMode::On { effort, budget })
-            }
+            None if effort.is_some() || self.thinking_budget.is_some() => Ok(ThinkingMode::On { effort, budget }),
             None => Ok(ThinkingMode::ProviderDefault),
             Some(other) => Err(format!("unknown thinking {other:?}; expected one of [\"on\", \"off\"]")),
         }
@@ -1397,11 +1345,7 @@ impl ArnesConfig {
             },
             max_retries: self.max_retries.unwrap_or(3),
             retry_base: std::time::Duration::from_millis(self.retry_base_ms.unwrap_or(500)),
-            extra_headers: self
-                .extra_headers
-                .iter()
-                .map(|h| (h.name.clone(), h.value.clone()))
-                .collect(),
+            extra_headers: self.extra_headers.iter().map(|h| (h.name.clone(), h.value.clone())).collect(),
         })
     }
 
@@ -1472,11 +1416,7 @@ impl ArnesConfig {
     /// An unknown `:permission-mode`, named with its legal set.
     pub fn permission_policy(&self) -> Result<arnes_loop::permission::Policy, String> {
         use arnes_loop::permission::{PermissionMode, Policy};
-        Ok(Policy {
-            mode: self.permission_mode.as_deref().map_or(Ok(PermissionMode::Default), PermissionMode::parse)?,
-            allow: self.allow_tools.clone(),
-            deny: self.deny_tools.clone(),
-        })
+        Ok(Policy { mode: self.permission_mode.as_deref().map_or(Ok(PermissionMode::Default), PermissionMode::parse)?, allow: self.allow_tools.clone(), deny: self.deny_tools.clone() })
     }
 
     /// The blue commands whose names are free, and a refusal for each one
@@ -1624,12 +1564,12 @@ impl ArnesConfig {
             Some(arnes_mcp_client::from_anvil_json(&v))
         };
         if !self.mcp.scopes.is_empty() {
-            let dir = self.mcp.scope_dir.as_deref().map(|d| arnes_blue::expand_home(std::path::Path::new(d))).or_else(|| {
-                std::env::var_os("XDG_CONFIG_HOME")
-                    .map(PathBuf::from)
-                    .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-                    .map(|c| c.join("arnes/mcp"))
-            });
+            let dir = self
+                .mcp
+                .scope_dir
+                .as_deref()
+                .map(|d| arnes_blue::expand_home(std::path::Path::new(d)))
+                .or_else(|| std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config"))).map(|c| c.join("arnes/mcp")));
             for scope in &self.mcp.scopes {
                 if let Some(r) = dir.as_ref().and_then(|d| read(&d.join(format!("{scope}.json")), &mut notes)) {
                     reg.merge(r);
@@ -1806,14 +1746,15 @@ impl ArnesConfig {
         // Merge with an anvil-generated json if configured.
         if let Some(anvil_path) = &self.anvil_json
             && let Ok(text) = std::fs::read_to_string(anvil_path)
-                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text) {
-                    let from_anvil = arnes_mcp_client::from_anvil_json(&parsed);
-                    for s in from_anvil.servers {
-                        if reg.get(&s.name).is_none() {
-                            reg.register(s);
-                        }
-                    }
+            && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&text)
+        {
+            let from_anvil = arnes_mcp_client::from_anvil_json(&parsed);
+            for s in from_anvil.servers {
+                if reg.get(&s.name).is_none() {
+                    reg.register(s);
                 }
+            }
+        }
         reg
     }
 }
@@ -1871,11 +1812,7 @@ mod tests {
     fn load_lisp(src: &str) -> ArnesConfig {
         use std::sync::atomic::{AtomicU32, Ordering};
         static N: AtomicU32 = AtomicU32::new(0);
-        let dir = std::env::temp_dir().join(format!(
-            "arnes-cfg-{}-{}",
-            std::process::id(),
-            N.fetch_add(1, Ordering::Relaxed)
-        ));
+        let dir = std::env::temp_dir().join(format!("arnes-cfg-{}-{}", std::process::id(), N.fetch_add(1, Ordering::Relaxed)));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("arnes.lisp");
         std::fs::write(&path, src).unwrap();
@@ -1956,8 +1893,30 @@ mod tests {
     fn promote_starts_on_the_fallback_and_keeps_the_rest() {
         let c = ArnesConfig {
             fallbacks: vec![
-                RouteDecl { provedor: "local".into(), modelo: String::new(), endpoint: Some("http://h:8080".into()), api_key_file: None, key_env: None, timeout_secs: None, system_note: Some("You are gpt-oss-20b on gpubox.".into()), tools: None, label: None, facts: RouteFacts::default() },
-                RouteDecl { provedor: "anthropic".into(), modelo: String::new(), endpoint: None, api_key_file: None, key_env: None, timeout_secs: None, system_note: None, tools: None, label: None, facts: RouteFacts::default() },
+                RouteDecl {
+                    provedor: "local".into(),
+                    modelo: String::new(),
+                    endpoint: Some("http://h:8080".into()),
+                    api_key_file: None,
+                    key_env: None,
+                    timeout_secs: None,
+                    system_note: Some("You are gpt-oss-20b on gpubox.".into()),
+                    tools: None,
+                    label: None,
+                    facts: RouteFacts::default(),
+                },
+                RouteDecl {
+                    provedor: "anthropic".into(),
+                    modelo: String::new(),
+                    endpoint: None,
+                    api_key_file: None,
+                    key_env: None,
+                    timeout_secs: None,
+                    system_note: None,
+                    tools: None,
+                    label: None,
+                    facts: RouteFacts::default(),
+                },
             ],
             ..ArnesConfig::default()
         };
@@ -1979,8 +1938,30 @@ mod tests {
         let c = ArnesConfig {
             provedor: "deepseek".into(),
             fallbacks: vec![
-                RouteDecl { provedor: "local".into(), modelo: String::new(), endpoint: Some("http://h:8080".into()), api_key_file: None, key_env: None, timeout_secs: None, system_note: None, tools: None, label: Some("gpubox".into()), facts: RouteFacts::default() },
-                RouteDecl { provedor: "anthropic".into(), modelo: String::new(), endpoint: None, api_key_file: None, key_env: None, timeout_secs: None, system_note: None, tools: None, label: None, facts: RouteFacts::default() },
+                RouteDecl {
+                    provedor: "local".into(),
+                    modelo: String::new(),
+                    endpoint: Some("http://h:8080".into()),
+                    api_key_file: None,
+                    key_env: None,
+                    timeout_secs: None,
+                    system_note: None,
+                    tools: None,
+                    label: Some("gpubox".into()),
+                    facts: RouteFacts::default(),
+                },
+                RouteDecl {
+                    provedor: "anthropic".into(),
+                    modelo: String::new(),
+                    endpoint: None,
+                    api_key_file: None,
+                    key_env: None,
+                    timeout_secs: None,
+                    system_note: None,
+                    tools: None,
+                    label: None,
+                    facts: RouteFacts::default(),
+                },
             ],
             ..ArnesConfig::default()
         };
@@ -2068,10 +2049,7 @@ mod tests {
     fn history_keys_load_and_a_bad_one_is_refused_alone() {
         let d = ArnesConfig::default().history_knobs();
         assert_eq!(d.1, Vec::<String>::new());
-        assert_eq!(
-            d.0,
-            HistoryKnobs { record: true, scope: arnes_store::history::Scope::ProjectThenGlobal, keep: 10_000, search: HistorySearchStyle::Picker, recency: false, pin_recent: true }
-        );
+        assert_eq!(d.0, HistoryKnobs { record: true, scope: arnes_store::history::Scope::ProjectThenGlobal, keep: 10_000, search: HistorySearchStyle::Picker, recency: false, pin_recent: true });
         let c = load_lisp(
             r#"(defarnes
   :history (:record "off" :scope "project" :keep 50 :search "incremental" :ranking "sideways" :pin-recent #f))
@@ -2129,12 +2107,7 @@ mod tests {
 
     #[test]
     fn a_bad_command_or_tool_is_refused_alone() {
-        let decl = |name: &str| CommandDecl {
-            name: name.into(),
-            description: String::new(),
-            blue: "x.b".into(),
-            r#fn: "run".into(),
-        };
+        let decl = |name: &str| CommandDecl { name: name.into(), description: String::new(), blue: "x.b".into(), r#fn: "run".into() };
         let c = ArnesConfig {
             commands: vec![decl("clear"), decl("wc"), decl("wc"), decl("two words"), decl("ok")],
             tools: vec![
@@ -2165,14 +2138,7 @@ mod tests {
     #[test]
     fn config_to_mcp_registry() {
         let mut c = ArnesConfig::default();
-        c.mcp_servers.push(McpServerDecl {
-            nome: "escriba-mcp".into(),
-            command: "/bin/escriba-mcp".into(),
-            args: vec![],
-            env: HashMap::new(),
-            cwd: None,
-            required: true,
-        });
+        c.mcp_servers.push(McpServerDecl { nome: "escriba-mcp".into(), command: "/bin/escriba-mcp".into(), args: vec![], env: HashMap::new(), cwd: None, required: true });
         let reg = c.to_mcp_registry();
         assert_eq!(reg.names(), vec!["escriba-mcp"]);
     }
@@ -2234,28 +2200,17 @@ mod tests {
 
     #[test]
     fn thinking_mode_resolution_table() {
-        let with = |thinking: Option<&str>, effort: Option<&str>| ArnesConfig {
-            thinking: thinking.map(Into::into),
-            effort: effort.map(Into::into),
-            ..ArnesConfig::default()
-        };
+        let with = |thinking: Option<&str>, effort: Option<&str>| ArnesConfig { thinking: thinking.map(Into::into), effort: effort.map(Into::into), ..ArnesConfig::default() };
         assert_eq!(with(None, None).thinking_mode(), Ok(ThinkingMode::ProviderDefault));
         assert_eq!(with(Some("off"), None).thinking_mode(), Ok(ThinkingMode::Off));
-        assert_eq!(
-            with(None, Some("low")).thinking_mode(),
-            Ok(ThinkingMode::On { effort: Some(Effort::Low), budget: None })
-        );
+        assert_eq!(with(None, Some("low")).thinking_mode(), Ok(ThinkingMode::On { effort: Some(Effort::Low), budget: None }));
         assert!(with(Some("maybe"), None).thinking_mode().unwrap_err().contains("\"on\""));
         assert!(with(None, Some("medium")).thinking_mode().unwrap_err().contains("low"));
     }
 
     #[test]
     fn anthropic_keeps_its_budget() {
-        let c = ArnesConfig {
-            provedor: "anthropic".into(),
-            thinking_budget: Some(1024),
-            ..ArnesConfig::default()
-        };
+        let c = ArnesConfig { provedor: "anthropic".into(), thinking_budget: Some(1024), ..ArnesConfig::default() };
         assert_eq!(c.thinking_mode(), Ok(ThinkingMode::On { effort: None, budget: Some(1024) }));
     }
 
@@ -2289,7 +2244,18 @@ mod tests {
             provedor: "deepseek".into(),
             modelo: "deepseek-flash".into(),
             system_note: Some("You are on ${HOME}'s \"box\".".into()),
-            fallbacks: vec![RouteDecl { provedor: "local".into(), modelo: String::new(), endpoint: Some("http://h:8080".into()), api_key_file: None, key_env: None, timeout_secs: Some(600), system_note: None, tools: Some(false), label: Some("gpubox".into()), facts: RouteFacts::default() }],
+            fallbacks: vec![RouteDecl {
+                provedor: "local".into(),
+                modelo: String::new(),
+                endpoint: Some("http://h:8080".into()),
+                api_key_file: None,
+                key_env: None,
+                timeout_secs: Some(600),
+                system_note: None,
+                tools: Some(false),
+                label: Some("gpubox".into()),
+                facts: RouteFacts::default(),
+            }],
             ui: UiSection {
                 theme: Some("vellum".into()),
                 motion: Some("off".into()),
@@ -2301,10 +2267,7 @@ mod tests {
             },
             keys: KeysSection {
                 prompt: KeyEdits { bind: vec![("ctrl+q".into(), "app:exit".into())], unbind: vec!["ctrl+d".into()] },
-                nav: NavKeysSection {
-                    menu: KeyEdits { bind: vec![("x".into(), "nav:close".into())], unbind: vec!["q".into()] },
-                    filter: KeyEdits { bind: vec![], unbind: vec!["tab".into()] },
-                },
+                nav: NavKeysSection { menu: KeyEdits { bind: vec![("x".into(), "nav:close".into())], unbind: vec!["q".into()] }, filter: KeyEdits { bind: vec![], unbind: vec!["tab".into()] } },
             },
             activity: ActivitySection { shimmer_ms: Some(900), hold_ms: Some(600), notify_after_secs: Some(30) },
             mcp: McpSection { exposure: Some("deferred".into()), inline_max: Some(10), connect_timeout_secs: Some(5), call_timeout_secs: Some(60), ..McpSection::default() },
@@ -2441,7 +2404,18 @@ mod tests {
         let c = ArnesConfig {
             provedor: "deepseek".into(),
             free_route: FreeRouteSection { endpoint: Some("http://gpubox:8080".into()), on_device: Some(true), ..FreeRouteSection::default() },
-            fallbacks: vec![RouteDecl { provedor: "openai".into(), modelo: String::new(), endpoint: None, api_key_file: None, key_env: None, timeout_secs: None, system_note: None, tools: None, label: None, facts: RouteFacts::default() }],
+            fallbacks: vec![RouteDecl {
+                provedor: "openai".into(),
+                modelo: String::new(),
+                endpoint: None,
+                api_key_file: None,
+                key_env: None,
+                timeout_secs: None,
+                system_note: None,
+                tools: None,
+                label: None,
+                facts: RouteFacts::default(),
+            }],
             ..ArnesConfig::default()
         };
         let f = c.free_route().unwrap();
@@ -2563,8 +2537,7 @@ mod tests {
             let found = if is_leaf {
                 module.contains(&format!("{name} = leaf"))
             } else {
-                module.contains(&format!("{name} = {{"))
-                    || ["keyEdits", "routeFacts"].iter().any(|spec| module.contains(&format!("{name} = {spec};")))
+                module.contains(&format!("{name} = {{")) || ["keyEdits", "routeFacts"].iter().any(|spec| module.contains(&format!("{name} = {spec};")))
             };
             assert!(found, "{path} has no typed option `{name}` in module/default.nix");
         }
@@ -2582,11 +2555,7 @@ mod discovery_tests {
     #[test]
     fn scopes_merge_after_the_declared_servers_deduplicated_and_selected() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(
-            dir.path().join("pleme.json"),
-            r#"{"mcpServers":{"codesearch":{"command":"cs"},"dup":{"command":"gh"},"github":{"command":"other"}}}"#,
-        )
-        .unwrap();
+        std::fs::write(dir.path().join("pleme.json"), r#"{"mcpServers":{"codesearch":{"command":"cs"},"dup":{"command":"gh"},"github":{"command":"other"}}}"#).unwrap();
         let cfg = ArnesConfig {
             mcp_servers: vec![server("github", "gh"), server("splunk", "sp")],
             mcp: McpSection {

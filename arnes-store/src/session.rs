@@ -36,10 +36,7 @@ pub struct Session {
 impl Session {
     #[must_use]
     pub fn new(id: impl Into<String>, cwd: impl Into<PathBuf>, conversation: Conversation, now: DateTime<Utc>) -> Self {
-        let mut s = Self {
-            meta: SessionMeta { id: id.into(), cwd: cwd.into(), created: now, updated: now, title: String::new(), messages: 0 },
-            conversation,
-        };
+        let mut s = Self { meta: SessionMeta { id: id.into(), cwd: cwd.into(), created: now, updated: now, title: String::new(), messages: 0 }, conversation };
         s.refresh(now);
         s
     }
@@ -123,9 +120,7 @@ impl Sessions {
             .filter(|p| p.extension().is_some_and(|x| x == "json"))
             .filter_map(|p| {
                 let text = std::fs::read_to_string(&p).ok()?;
-                serde_json::from_str::<SessionMeta>(&text)
-                    .inspect_err(|e| tracing::debug!(path = %p.display(), error = %e, "sessions: skipped"))
-                    .ok()
+                serde_json::from_str::<SessionMeta>(&text).inspect_err(|e| tracing::debug!(path = %p.display(), error = %e, "sessions: skipped")).ok()
             })
             .collect();
         out.sort_by(|a, b| b.updated.cmp(&a.updated).then_with(|| b.id.cmp(&a.id)));

@@ -14,18 +14,12 @@ pub struct Message {
 impl Message {
     #[must_use]
     pub fn user_text(text: impl Into<String>) -> Self {
-        Self {
-            role: Role::User,
-            content: vec![ContentBlock::Text { text: text.into() }],
-        }
+        Self { role: Role::User, content: vec![ContentBlock::Text { text: text.into() }] }
     }
 
     #[must_use]
     pub fn assistant_text(text: impl Into<String>) -> Self {
-        Self {
-            role: Role::Assistant,
-            content: vec![ContentBlock::Text { text: text.into() }],
-        }
+        Self { role: Role::Assistant, content: vec![ContentBlock::Text { text: text.into() }] }
     }
 
     /// Concatenate every `Text` block's text — useful for quick display.
@@ -48,11 +42,7 @@ pub enum ContentBlock {
     /// Plain text.
     Text { text: String },
     /// The assistant requests a tool call. Fields match the API wire shape.
-    ToolUse {
-        id: String,
-        name: String,
-        input: Value,
-    },
+    ToolUse { id: String, name: String, input: Value },
     /// Reasoning the model emitted before answering — `deepseek-reasoner`,
     /// or Anthropic extended thinking. Whether it is echoed back in later
     /// requests is a provider fact (`RequestParams::echo_thinking`).
@@ -112,17 +102,9 @@ mod tests {
         let m = Message {
             role: Role::Assistant,
             content: vec![
-                ContentBlock::Text {
-                    text: "Hello ".into(),
-                },
-                ContentBlock::ToolUse {
-                    id: "t1".into(),
-                    name: "read_file".into(),
-                    input: serde_json::json!({ "path": "/tmp/x" }),
-                },
-                ContentBlock::Text {
-                    text: "world.".into(),
-                },
+                ContentBlock::Text { text: "Hello ".into() },
+                ContentBlock::ToolUse { id: "t1".into(), name: "read_file".into(), input: serde_json::json!({ "path": "/tmp/x" }) },
+                ContentBlock::Text { text: "world.".into() },
             ],
         };
         assert_eq!(m.text(), "Hello world.");
@@ -130,11 +112,7 @@ mod tests {
 
     #[test]
     fn tool_use_serializes_with_type_tag() {
-        let b = ContentBlock::ToolUse {
-            id: "t1".into(),
-            name: "read_file".into(),
-            input: serde_json::json!({ "path": "/tmp/x" }),
-        };
+        let b = ContentBlock::ToolUse { id: "t1".into(), name: "read_file".into(), input: serde_json::json!({ "path": "/tmp/x" }) };
         let s = serde_json::to_string(&b).unwrap();
         assert!(s.contains(r#""type":"tool_use""#));
         assert!(s.contains(r#""name":"read_file""#));
@@ -149,11 +127,9 @@ mod tests {
 
     #[test]
     fn thinking_blocks_parse_from_the_wire() {
-        let b: ContentBlock =
-            serde_json::from_str(r#"{"type":"thinking","thinking":"hmm","signature":"s"}"#).unwrap();
+        let b: ContentBlock = serde_json::from_str(r#"{"type":"thinking","thinking":"hmm","signature":"s"}"#).unwrap();
         assert!(matches!(b, ContentBlock::Thinking { ref thinking, .. } if thinking == "hmm"));
-        let r: ContentBlock =
-            serde_json::from_str(r#"{"type":"redacted_thinking","data":"x"}"#).unwrap();
+        let r: ContentBlock = serde_json::from_str(r#"{"type":"redacted_thinking","data":"x"}"#).unwrap();
         assert!(matches!(r, ContentBlock::RedactedThinking { .. }));
     }
 

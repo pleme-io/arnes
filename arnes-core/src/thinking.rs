@@ -68,12 +68,7 @@ impl EchoRule {
 ///
 /// # Errors
 /// When `s` names none of `all`.
-pub fn parse_named<T: Copy>(
-    s: &str,
-    all: &[T],
-    name: fn(T) -> &'static str,
-    what: &str,
-) -> Result<T, String> {
+pub fn parse_named<T: Copy>(s: &str, all: &[T], name: fn(T) -> &'static str, what: &str) -> Result<T, String> {
     all.iter().copied().find(|v| name(*v) == s).ok_or_else(|| {
         let legal: Vec<_> = all.iter().map(|v| name(*v)).collect();
         format!("unknown {what} {s:?}; expected one of {legal:?}")
