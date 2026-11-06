@@ -139,6 +139,8 @@ catalogue is trusted. `--models` always refreshes.
 | `ui.motion` | on \| off | on | `motion` |
 | `ui.notifications` | auto \| off | auto | `notifications` |
 | `ui.editor_mode` | normal \| vim | normal | `editor_mode` |
+| `ui.wheel` | conversation \| terminal | conversation: the wheel and a two-finger drag scroll the conversation (arnes reads the mouse; select text with the terminal's modifier, often Shift or Option); terminal: arnes leaves the mouse alone, and a terminal in alternate-scroll mode turns the wheel into Up/Down, which walk the prompt history | |
+| `ui.wheel_lines` | 1..=20 | 3 | |
 | `ui.regions.notice_rows` | 0..=10 | 3 | `notice_rows` |
 | `ui.regions.picker_rows` | 3..=40 | 12 | `picker_rows` |
 | `ui.notices.info_secs` | 1..=600 | 4 | `notice_info_secs` |

@@ -419,22 +419,31 @@ struct TurnDone {
 struct Protocols;
 
 impl Protocols {
-    fn enable() -> std::io::Result<Self> {
+    fn enable(mouse: bool) -> std::io::Result<Self> {
         use crossterm::event::{EnableBracketedPaste, KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
         let mut out = std::io::stdout();
         crossterm::execute!(out, EnableBracketedPaste)?;
+        Self::mouse(mouse)?;
         // Terminals without the protocol ignore the push; the portable
         // newline fallbacks (Alt-Enter, Ctrl-J, `\`+Enter) still work there.
         let _ = crossterm::execute!(out, PushKeyboardEnhancementFlags(KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES));
         Ok(Self)
     }
+
+    /// `ui.wheel`: capture the mouse so the wheel scrolls the conversation,
+    /// or leave it to the terminal.
+    fn mouse(on: bool) -> std::io::Result<()> {
+        use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+        let mut out = std::io::stdout();
+        if on { crossterm::execute!(out, EnableMouseCapture) } else { crossterm::execute!(out, DisableMouseCapture) }
+    }
 }
 
 impl Drop for Protocols {
     fn drop(&mut self) {
-        use crossterm::event::{DisableBracketedPaste, PopKeyboardEnhancementFlags};
+        use crossterm::event::{DisableBracketedPaste, DisableMouseCapture, PopKeyboardEnhancementFlags};
         let mut out = std::io::stdout();
-        let _ = crossterm::execute!(out, PopKeyboardEnhancementFlags, DisableBracketedPaste);
+        let _ = crossterm::execute!(out, PopKeyboardEnhancementFlags, DisableBracketedPaste, DisableMouseCapture);
     }
 }
 
@@ -956,6 +965,7 @@ impl Live {
             state.toast(ToastLevel::Warn, format!("config {r}"));
         }
         effects.pacer = knobs.frame_rate != self.knobs.frame_rate;
+        effects.mouse = (knobs.wheel_captured != self.knobs.wheel_captured).then_some(knobs.wheel_captured);
         effects.mentions = knobs.mention_max_files != self.knobs.mention_max_files;
         self.knobs = knobs;
         self.notifications = new.notifications_mode().as_deref() != Some("off");
@@ -1029,6 +1039,8 @@ impl Live {
 struct ReloadEffects {
     /// The frame rate changed: a new pacer.
     pacer: bool,
+    /// `ui.wheel` changed: capture the mouse (`Some(true)`) or release it.
+    mouse: Option<bool>,
     /// The mention limit changed: list the files again on the next `@`.
     mentions: bool,
     /// Session recording turned on (`Some(true)`) or off.
@@ -1234,7 +1246,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
 
     // Drop-safe terminal lifecycle from egaku-term, plus input protocols.
     let mut term = Terminal::enter()?;
-    let mut protocols = Some(Protocols::enable()?);
+    let mut protocols = Some(Protocols::enable(live.knobs.wheel_captured)?);
     let mut title = format!("arnes · {}", cfg.model());
     emit(&egaku::vt::window_title(&title));
     // Frames are paced: at most `ui.timing.frame-rate` a second while
@@ -1373,6 +1385,9 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                     if fx.pacer {
                         pacer = egaku_term::anim::FramePacer::new(live.knobs.frame_rate);
                     }
+                    if let Some(on) = fx.mouse {
+                        let _ = Protocols::mouse(on);
+                    }
                     if fx.mentions {
                         mention_files = None;
                     }
@@ -1489,6 +1504,10 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                     }
                 }
                 Event::Paste(text) => state.input.paste(&text),
+                Event::Mouse(m) if matches!(m.kind, event::MouseEventKind::ScrollUp | event::MouseEventKind::ScrollDown) => {
+                    state.viewport = (cols, rows);
+                    state.wheel(m.kind == event::MouseEventKind::ScrollUp, live.knobs.wheel_lines, &live.keymap);
+                }
                 Event::Resize(c, r) => {
                     // No clear: the next frame repaints every cell inside
                     // one synchronized update, so a resize never flashes.
@@ -1552,7 +1571,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                         drop(term);
                         let edited = edit_externally(&state.input.editor.text());
                         term = Terminal::enter()?;
-                        protocols = Some(Protocols::enable()?);
+                        protocols = Some(Protocols::enable(live.knobs.wheel_captured)?);
                         term.clear()?;
                         term.flush()?;
                         prev = Buffer::empty(cols, rows);

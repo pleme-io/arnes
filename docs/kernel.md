@@ -32,6 +32,7 @@ capability-scopes bidamas, and reloads them.
 | render and layout engine: region grid, drawers, diffed frames, pacing, colour depth, motion clock | `arnes-tui`, egaku-term | enforces the screen law; a bidama returns text, never paints |
 | markdown and code layout | mojiban via `egaku_term::markdown` | engine; a theme bidama feeds it |
 | editor core: text area, vim engine, history, kill ring | `arnes-tui`, escriba | per-keystroke hot path |
+| the mouse wheel: captured when `ui.wheel` is `conversation`, each step scrolls the overlay in front or the conversation pager, never the prompt history | `arnes-tui` (`TuiState::wheel`), `arnes/src/main.rs` (`Protocols::mouse`) | the terminal's mouse protocol; per-event hot path |
 | navigation grammar | egaku `Navigator` | one grammar on every surface |
 | provider transport: wire, streaming, retries, fallback execution, each route's auth header (`x-api-key` or bearer), every failure judged by `handan` into one typed verdict (`unauthorized`, `throttled`, `server-error`, `unreachable`, `timed-out`), kept per route as its health beside the route that served the turn and its latency | `arnes-anthropic` | network and secrets |
 | MCP client and pool | `arnes-mcp-client` | processes and sockets |

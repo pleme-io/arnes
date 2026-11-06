@@ -76,6 +76,8 @@ let
       motion = leaf onOff "off draws every surface at its end state (reduced motion).";
       notifications = leaf (types.enum [ "auto" "off" ]) "Desktop notifications; off = bell only (wins over `notifications`).";
       editorMode = leaf (types.enum [ "normal" "vim" ]) "Prompt editing (wins over `editorMode`).";
+      wheel = leaf (types.enum [ "conversation" "terminal" ]) "What the wheel and a two-finger drag move. null → conversation.";
+      wheelLines = leaf (between 1 20) "Conversation rows per wheel step. null → 3.";
       regions = {
         noticeRows = leaf (between 0 10) "Most rows the notice lane opens to. null → 3.";
         pickerRows = leaf (between 3 40) "Rows a picker claims above the prompt. null → 12.";

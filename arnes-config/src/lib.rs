@@ -557,6 +557,9 @@ pub struct Knobs {
     pub notify_after: std::time::Duration,
     pub frame_rate: u32,
     pub idle_poll: std::time::Duration,
+    /// The wheel scrolls the conversation (arnes captures the mouse).
+    pub wheel_captured: bool,
+    pub wheel_lines: usize,
 }
 
 /// The prompt history, typed (`history.*`, docs/configuration.md).
@@ -1305,7 +1308,12 @@ impl ArnesConfig {
             notify_after: std::time::Duration::from_secs(u64::from(take(bounded("activity.notify-after-secs", self.activity.notify_after_secs, 0, 3600, 10)))),
             frame_rate: take(bounded("ui.timing.frame-rate", self.ui.timing.frame_rate, 1, 240, 60)),
             idle_poll: std::time::Duration::from_millis(u64::from(take(bounded("ui.timing.idle-poll-ms", self.ui.timing.idle_poll_ms, 10, 1000, 50)))),
+            wheel_captured: true,
+            wheel_lines: take(bounded("ui.wheel-lines", self.ui.wheel_lines, 1, 20, 3)) as usize,
         };
+        let (wheel, r) = sections::one_of("ui.wheel", self.ui.wheel.as_deref(), &["conversation", "terminal"], "conversation");
+        refused.extend(r);
+        let k = Knobs { wheel_captured: wheel == "conversation", ..k };
         (k, refused)
     }
 
@@ -1705,6 +1713,22 @@ mod tests {
         assert_eq!(read_key_in(&p, Some(&file), var, Some(&store)).unwrap().unwrap().expose(), "zk-file", "a named file wins");
         let local = Provider::parse("local").unwrap();
         assert!(read_key_in(&local, None, var, Some(&store)).unwrap().is_none(), "an optional key stays optional");
+    }
+
+    #[test]
+    fn the_wheel_knob_reads_its_legal_set_and_a_bad_value_is_refused_alone() {
+        let (k, refused) = ArnesConfig::default().knobs();
+        assert!(k.wheel_captured && k.wheel_lines == 3 && refused.is_empty());
+        let mut c = ArnesConfig::default();
+        c.ui.wheel = Some("terminal".into());
+        c.ui.wheel_lines = Some(5);
+        let (k, _) = c.knobs();
+        assert!(!k.wheel_captured && k.wheel_lines == 5);
+        c.ui.wheel = Some("sideways".into());
+        c.ui.wheel_lines = Some(99);
+        let (k, refused) = c.knobs();
+        assert!(k.wheel_captured && k.wheel_lines == 3, "each bad value falls back alone");
+        assert_eq!(refused.len(), 2, "{refused:?}");
     }
 
     #[test]
@@ -2232,6 +2256,8 @@ mod tests {
                 motion: Some("off".into()),
                 notifications: Some("off".into()),
                 editor_mode: Some("vim".into()),
+                wheel: Some("terminal".into()),
+                wheel_lines: Some(5),
                 regions: RegionsSection { notice_rows: Some(2), picker_rows: Some(20) },
                 notices: NoticesSection { info_secs: Some(3), warn_secs: Some(9), error_secs: Some(30) },
                 timing: TimingSection { frame_rate: Some(30), idle_poll_ms: Some(100), reveal_row_ms: Some(0) },

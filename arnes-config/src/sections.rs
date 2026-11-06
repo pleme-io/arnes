@@ -52,6 +52,13 @@ section! {
         notifications: Option<String>,
         /// `normal` (default) or `vim`.
         editor_mode: Option<String>,
+        /// What the mouse wheel and a two-finger drag move: `conversation`
+        /// (default; arnes reads the wheel, so selecting text takes the
+        /// terminal's modifier, often Shift or Option) or `terminal` (arnes
+        /// leaves the mouse alone).
+        wheel: Option<String>,
+        /// Conversation rows one wheel step moves. 1..=20, default 3.
+        wheel_lines: Option<u32>,
         regions: RegionsSection,
         notices: NoticesSection,
         timing: TimingSection,

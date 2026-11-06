@@ -467,6 +467,41 @@ impl TuiState {
         true
     }
 
+    /// One wheel step: the overlay in front scrolls as by its own Up/Down;
+    /// with none, the conversation leaves the live tail going up and
+    /// returns to it at the end going down. The prompt history is never
+    /// walked by the wheel.
+    pub fn wheel(&mut self, up: bool, lines: usize, keymap: &Keymap) {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let other = self.approval.is_some() || self.mcp.is_some() || self.input.show_help || self.panel.is_some();
+        if other {
+            let key = KeyEvent::new(if up { KeyCode::Up } else { KeyCode::Down }, KeyModifiers::NONE);
+            for _ in 0..lines {
+                let _ = self.overlay_key(&key, keymap);
+            }
+            return;
+        }
+        let rows = crate::render::conversation_rows(self, self.pane_inner().0);
+        if !self.is_scrolling() {
+            if !up {
+                return;
+            }
+            let mut nav = Navigator::new(egaku::NavKind::Pager, egaku::SearchStyle::Jump, self.nav.keymap().clone());
+            nav.set_viewport(self.pager_rows());
+            nav.to_end(rows.len());
+            if nav.offset() == 0 {
+                return;
+            }
+            self.nav = nav;
+            self.pane = Pane::Scrollback;
+        }
+        self.nav.set_viewport(self.pager_rows());
+        self.nav.apply(if up { egaku::NavAction::Up } else { egaku::NavAction::Down }, Some(lines), &rows);
+        if !up && self.nav.at_end(rows.len()) {
+            self.pane = Pane::Live;
+        }
+    }
+
     /// One key to the overlay in front: the approval dialog, the MCP
     /// browser, help, a local panel or the scrollback, each through the same
     /// navigation grammar. Pickers belong to the prompt and are not here.

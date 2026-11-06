@@ -212,6 +212,34 @@ mod surfaces {
         st
     }
 
+    #[test]
+    fn the_wheel_scrolls_the_conversation_and_never_walks_the_prompt_history() {
+        let km = Keymap::claude_code();
+        let mut c = Conversation::default();
+        for i in 0..200 {
+            c.push(Message::user_text(format!("message {i}")));
+        }
+        let mut st = TuiState::new(c, "m");
+        st.viewport = (80, 30);
+        st.motion = false;
+        st.input.load_history(vec![], false);
+        st.input.set_text("half-typed");
+        st.wheel(false, 3, &km);
+        assert!(!st.is_scrolling(), "down at the live tail stays there");
+        st.wheel(true, 3, &km);
+        assert!(st.is_scrolling());
+        let first = st.nav.offset();
+        st.wheel(true, 3, &km);
+        assert_eq!(st.nav.offset(), first - 3, "each step moves its lines");
+        st.wheel(false, 3, &km);
+        st.wheel(false, 3, &km);
+        assert!(!st.is_scrolling(), "down to the end returns to the live tail");
+        assert_eq!(st.input.editor.text(), "half-typed", "the prompt is untouched");
+        st.panel = Some(("panel".into(), (0..200).map(|i| format!("line {i}")).collect()));
+        st.wheel(true, 3, &km);
+        assert!(!st.is_scrolling(), "an open panel takes the wheel, not the conversation");
+    }
+
     fn press(st: &mut TuiState, keys: &str) -> Overlay {
         let km = Keymap::claude_code();
         let mut last = Overlay::None;

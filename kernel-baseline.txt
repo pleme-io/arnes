@@ -9,14 +9,14 @@
 # the host functions blue calls: each one a capability a bidama may not grant itself; arnes_http is the one network call, choose-route hooks only, arnes_login (a key is typed at the tty and stored by the kernel, never handed to blue)
 host: arnes-blue 23
 
-# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts), installing the hosted provider table, /login and its secret effect, every declared provider in /model, the route facts paragraph, the held switch applied when a turn ends
-rust: arnes 2790
+# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts), installing the hosted provider table, /login and its secret effect, every declared provider in /model, the route facts paragraph, the held switch applied when a turn ends, mouse capture on and off with ui.wheel, live
+rust: arnes 2805
 # provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches
 rust: arnes-anthropic 582
 # the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships, the provider export kind, the hosted tool kind
 rust: arnes-blue 802
-# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider
-rust: arnes-config 1880
+# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider, ui.wheel and ui.wheel-lines
+rust: arnes-config 1889
 # conversation and usage types the kernel crates share
 rust: arnes-core 282
 # the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours read from its declared facts, the route switch a tool asks for, held until its turn ends
@@ -27,7 +27,7 @@ rust: arnes-mcp-client 811
 rust: arnes-store 569
 # the built-in tools: filesystem, subprocess, guardrail
 rust: arnes-tools 390
-# the render engine and the screen law: the per-frame hot path, the masked secret entry (a key typed at the tty never drawn or kept in history)
-rust: arnes-tui 2984
+# the render engine and the screen law: the per-frame hot path, the masked secret entry (a key typed at the tty never drawn or kept in history), the wheel scrolling the conversation pager (a mouse event is the terminal's)
+rust: arnes-tui 3014
 # the vigy runtime embedding
 rust: arnes-vigy 197
