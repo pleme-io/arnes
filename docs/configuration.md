@@ -315,6 +315,7 @@ What `Up`/`Down` walk and `Ctrl-R` searches. The keys are `keys.prompt`
 | `history.search` | picker \| incremental | picker: `Ctrl-R` opens the ranked fuzzy picker (the typed line is its query; `Ctrl-R` again moves to the next row; `Enter` puts the prompt in the box to review). incremental: reverse-i-search in the prompt box |
 | `history.ranking` | frecency \| recency | frecency: `wadachi_spec::usage`, the ranking skim-tab gives the shell's `Ctrl-R` (time-decayed use count) |
 | `history.pin_recent` | bool | on: the newest prompt stays first whatever its score |
+| `history.walk` | prefix \| all | prefix: with text typed, `Up`/`Down` walk only the prompts that start with it (zsh, fish and frost do the same); with nothing typed they walk every prompt. all: every prompt, whatever is typed |
 
 `Up` on the first row recalls the previous prompt with the cursor on its first
 row, so a multi-line prompt is walked past rather than climbed; `Down` on the

@@ -576,6 +576,8 @@ pub struct HistoryKnobs {
     pub recency: bool,
     /// The newest prompt stays first in the picker.
     pub pin_recent: bool,
+    /// `Up`/`Down` walk every prompt, not only those starting with the typed text.
+    pub walk_all: bool,
 }
 
 impl Default for HistoryKnobs {
@@ -1333,6 +1335,8 @@ impl ArnesConfig {
         refused.extend(r);
         let (ranking, r) = one_of("history.ranking", h.ranking.as_deref(), &["frecency", "recency"], "frecency");
         refused.extend(r);
+        let (walk, r) = one_of("history.walk", h.walk.as_deref(), &["prefix", "all"], "prefix");
+        refused.extend(r);
         let k = HistoryKnobs {
             record: record == "on",
             scope: arnes_store::history::Scope::parse(scope).unwrap_or_default(),
@@ -1340,6 +1344,7 @@ impl ArnesConfig {
             search: if search == "incremental" { HistorySearchStyle::Incremental } else { HistorySearchStyle::Picker },
             recency: ranking == "recency",
             pin_recent: h.pin_recent.unwrap_or(true),
+            walk_all: walk == "all",
         };
         (k, refused)
     }
@@ -2044,7 +2049,10 @@ mod tests {
     fn history_keys_load_and_a_bad_one_is_refused_alone() {
         let d = ArnesConfig::default().history_knobs();
         assert_eq!(d.1, Vec::<String>::new());
-        assert_eq!(d.0, HistoryKnobs { record: true, scope: arnes_store::history::Scope::ProjectThenGlobal, keep: 10_000, search: HistorySearchStyle::Picker, recency: false, pin_recent: true });
+        assert_eq!(
+            d.0,
+            HistoryKnobs { record: true, scope: arnes_store::history::Scope::ProjectThenGlobal, keep: 10_000, search: HistorySearchStyle::Picker, recency: false, pin_recent: true, walk_all: false }
+        );
         let c = load_lisp(
             r#"(defarnes
   :history (:record "off" :scope "project" :keep 50 :search "incremental" :ranking "sideways" :pin-recent #f))

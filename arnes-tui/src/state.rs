@@ -327,6 +327,7 @@ impl TuiState {
         let (history, r) = cfg.history_knobs();
         refused.extend(r);
         self.input.history_search = history.search;
+        self.input.history_walk_all = history.walk_all;
         self.input.history_rank = wadachi_spec::usage::RankOptions {
             mode: if history.recency { wadachi_spec::usage::RankMode::Recency } else { wadachi_spec::usage::RankMode::Frecency },
             pin_most_recent: history.pin_recent,

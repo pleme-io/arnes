@@ -327,6 +327,9 @@ section! {
         ranking: Option<String>,
         /// The most recent prompt stays first in the picker. Default on.
         pin_recent: Option<bool>,
+        /// What `Up`/`Down` walk: `prefix` (default: only prompts starting
+        /// with what is typed, as zsh, fish and frost do) or `all`.
+        walk: Option<String>,
     }
 }
 

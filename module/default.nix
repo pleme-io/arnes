@@ -176,6 +176,7 @@ let
       search = leaf (types.enum [ "picker" "incremental" ]) "Ctrl-R: the ranked fuzzy picker or reverse-i-search. null → picker.";
       ranking = leaf (types.enum [ "frecency" "recency" ]) "The picker's order. null → frecency.";
       pinRecent = leaf types.bool "The most recent prompt stays first in the picker. null → on.";
+      walk = leaf (types.enum [ "prefix" "all" ]) "What Up/Down walk: prompts starting with the typed text, or all. null → prefix.";
     };
     turn = {
       maxRounds = leaf (between 1 256) "Most model calls in one turn. null → 16.";

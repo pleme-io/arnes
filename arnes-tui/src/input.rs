@@ -163,6 +163,10 @@ pub struct InputState {
     recorded: Vec<String>,
     /// What `Ctrl-R` opens (`history.search`).
     pub history_search: HistorySearchStyle,
+    /// `history.walk = all`: `Up`/`Down` walk every prompt. Unset (the
+    /// default, `prefix`), they walk only prompts starting with what was
+    /// typed when the walk began, as zsh, fish and frost do.
+    pub history_walk_all: bool,
     /// How the `Ctrl-R` picker orders the feed (`history.ranking`, `history.pin-recent`).
     pub history_rank: RankOptions,
     history_pos: Option<usize>,
@@ -694,12 +698,16 @@ impl InputState {
         if self.history.is_empty() {
             return;
         }
-        let pos = match self.history_pos {
-            None => {
-                self.draft = Some(self.editor.text());
-                self.history.len() - 1
+        if self.history_pos.is_none() {
+            self.draft = Some(self.editor.text());
+        }
+        let below = self.history_pos.unwrap_or(self.history.len());
+        let Some(pos) = (0..below).rev().find(|&i| self.walks_to(i)) else {
+            if self.history_pos.is_none() {
+                self.draft = None;
+                self.hint = Some("no earlier prompt starts with that".into());
             }
-            Some(p) => p.saturating_sub(1),
+            return;
         };
         self.history_pos = Some(pos);
         self.editor.set_text(&self.history[pos]);
@@ -709,15 +717,23 @@ impl InputState {
         self.editor.move_to_row_end();
     }
 
+    /// Whether a walk that began at the draft stops at history entry `i`:
+    /// any entry when walking all or when nothing was typed; otherwise one
+    /// that starts with the typed text and is more than it.
+    fn walks_to(&self, i: usize) -> bool {
+        let prefix = self.draft.as_deref().unwrap_or("");
+        self.history_walk_all || prefix.is_empty() || prefix.contains('\n') || (self.history[i].starts_with(prefix) && self.history[i] != prefix)
+    }
+
     fn history_next(&mut self) {
         if !self.editor.on_last_row() {
             self.editor.move_down();
             return;
         }
         let Some(p) = self.history_pos else { return };
-        if p + 1 < self.history.len() {
-            self.history_pos = Some(p + 1);
-            self.editor.set_text(&self.history[p + 1]);
+        if let Some(next) = (p + 1..self.history.len()).find(|&i| self.walks_to(i)) {
+            self.history_pos = Some(next);
+            self.editor.set_text(&self.history[next]);
         } else {
             self.history_pos = None;
             let draft = self.draft.take().unwrap_or_default();
@@ -1027,6 +1043,7 @@ mod tests {
     fn up_down_walk_history_and_restore_the_draft() {
         let now = t0();
         let mut i = InputState::new();
+        i.history_walk_all = true;
         for p in ["first", "second"] {
             for c in p.chars() {
                 i.type_char(c);
@@ -1137,6 +1154,7 @@ mod tests {
     fn a_recalled_multiline_prompt_is_walked_past_not_climbed() {
         let now = t0();
         let mut i = loaded(&["one", "a\nb\nc", "last"]);
+        i.history_walk_all = true;
         i.type_char('w');
         i.apply(Action::HistoryPrevious, false, now);
         assert_eq!(i.editor.text(), "last");
@@ -1173,6 +1191,34 @@ mod tests {
         i.apply(Action::HistoryPrevious, false, now);
         i.apply(Action::HistoryPrevious, false, now);
         assert_eq!(i.editor.text(), "from yesterday");
+    }
+
+    #[test]
+    fn up_and_down_walk_the_prompts_starting_with_what_was_typed() {
+        let now = t0();
+        let mut i = loaded(&["git status", "cargo test", "git push", "git"]);
+        i.set_text("git");
+        i.apply(Action::HistoryPrevious, false, now);
+        assert_eq!(i.editor.text(), "git push", "the newest match; the bare prefix is skipped");
+        i.apply(Action::HistoryPrevious, false, now);
+        assert_eq!(i.editor.text(), "git status", "cargo test does not start with git");
+        i.apply(Action::HistoryPrevious, false, now);
+        assert_eq!(i.editor.text(), "git status", "no older match: it stays");
+        i.apply(Action::HistoryNext, false, now);
+        assert_eq!(i.editor.text(), "git push");
+        i.apply(Action::HistoryNext, false, now);
+        assert_eq!(i.editor.text(), "git", "past the newest match the typed text comes back");
+        i.set_text("zz");
+        i.apply(Action::HistoryPrevious, false, now);
+        assert_eq!(i.editor.text(), "zz", "nothing matches: the typed text stays");
+        i.set_text("");
+        i.apply(Action::HistoryPrevious, false, now);
+        assert_eq!(i.editor.text(), "git", "nothing typed walks every prompt");
+        let mut all = loaded(&["git status", "cargo test"]);
+        all.history_walk_all = true;
+        all.set_text("git");
+        all.apply(Action::HistoryPrevious, false, now);
+        assert_eq!(all.editor.text(), "cargo test", "history.walk = all ignores the typed text");
     }
 
     #[test]
