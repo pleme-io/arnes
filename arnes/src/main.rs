@@ -615,11 +615,13 @@ struct TurnKit<'a> {
     tx: &'a mpsc::Sender<TurnDone>,
     activity: &'a std::sync::mpsc::Sender<arnes_tui::activity::Event>,
     rounds: u32,
+    /// Replies stream into the activity channel (`turn.stream`).
+    stream: bool,
     /// The route's endpoint and whether it is the free local one, for the
     /// failure message.
     route: (String, bool),
     /// Prompts sent while the turn runs (`turn.queued = next-tool`).
-    inbox: &'a arnes_loop::Inbox,
+    inbox: &'a arnes_loop::TurnLink,
 }
 
 /// The queued prompts a running turn may take: every one before the first
@@ -704,7 +706,21 @@ fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandl
     // The turn owns a snapshot; the UI keeps rendering and reading keys, so
     // Esc / Ctrl-C can interrupt it (no lock held across the network call).
     let mut conversation = state.conversation.clone();
-    let (client, gate, tools, tx, ledger, inbox) = (kit.client.clone(), kit.gate.clone(), kit.tools.clone(), kit.tx.clone(), kit.ledger.clone(), kit.inbox.clone());
+    // A checkpoint belongs to one turn: an earlier turn's must never stand
+    // in for this one's when it is interrupted.
+    let _ = kit.inbox.take_checkpoint();
+    let (mut client, gate, tools, tx, ledger, inbox) = (kit.client.clone(), kit.gate.clone(), kit.tools.clone(), kit.tx.clone(), kit.ledger.clone(), kit.inbox.clone());
+    if kit.stream {
+        let act = kit.activity.clone();
+        client.stream = Some(arnes_anthropic::stream::Sink::new(move |d| {
+            use arnes_anthropic::stream::Delta;
+            let _ = act.send(match d {
+                Delta::Text(t) => arnes_tui::activity::Event::Text(t),
+                Delta::Thinking(t) => arnes_tui::activity::Event::Thinking(t),
+                Delta::Restart => arnes_tui::activity::Event::Restart,
+            });
+        }));
+    }
     let observed = Observed { inner: gate, tx: kit.activity.clone() };
     tokio::spawn(async move {
         let result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await.map(|_| ()).map_err(|e| turn_failure(&e, &route));
@@ -1273,10 +1289,22 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
     term.flush()?;
     let mut dirty = true;
 
-    let inbox = arnes_loop::Inbox::default();
+    let inbox = arnes_loop::TurnLink::default();
+    let mut shown_round = 0u64;
     macro_rules! kit {
         () => {
-            TurnKit { client: &live.client, gate: &live.gate, tools: &live.tools, ledger: &ledger, tx: &tx, activity: &act_tx, rounds: live.knobs.max_rounds, route: live.route(), inbox: &inbox }
+            TurnKit {
+                client: &live.client,
+                gate: &live.gate,
+                tools: &live.tools,
+                ledger: &ledger,
+                tx: &tx,
+                activity: &act_tx,
+                rounds: live.knobs.max_rounds,
+                stream: live.knobs.stream,
+                route: live.route(),
+                inbox: &inbox,
+            }
         };
     }
 
@@ -1285,6 +1313,15 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
         prompt_history.record(&mut state.input);
         // A running turn may take what is queued at its next tool boundary.
         inbox.offer(if state.busy && live.knobs.queued_mid_turn { mid_turn_offer(&state.input.queued) } else { Vec::new() });
+        // Each round the turn finishes shows at once, not at the turn's end.
+        if state.busy
+            && let Some((generation, progress)) = inbox.progress_since(shown_round)
+        {
+            shown_round = generation;
+            state.settle_stream();
+            state.receive_conversation(progress, Instant::now());
+            dirty = true;
+        }
         for sent in inbox.delivered() {
             if let Some(i) = state.input.queued.iter().position(|q| *q == sent) {
                 state.input.queued.remove(i);
@@ -1321,6 +1358,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
         // Finished turns.
         while let Ok(done) = rx.try_recv() {
             turn = None;
+            state.settle_stream();
             state.receive_conversation(done.conversation, Instant::now());
             if let Some(r) = recorder.as_mut() {
                 r.save(&state.conversation);
@@ -1580,8 +1618,20 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                     Effect::Interrupt => {
                         if let Some(t) = turn.take() {
                             t.abort();
-                            // Keep the transcript valid for the next turn: the
-                            // user's prompt stays, answered by a marker.
+                            // Keep what the turn finished (each answered tool
+                            // round) and the transcript valid for the next turn:
+                            // the last checkpoint, answered by a marker.
+                            if let Some(done) = inbox.take_checkpoint() {
+                                state.conversation = done;
+                            }
+                            // What streamed before the interrupt is kept as said.
+                            if !state.streaming.is_empty() {
+                                let partial = std::mem::take(&mut state.streaming);
+                                state.conversation.push(Message::assistant_text(format!("{partial}\n\n[interrupted by user]")));
+                                state.settle_stream();
+                                state.set_busy(false);
+                                continue;
+                            }
                             state.conversation.push(Message::assistant_text("[interrupted by user]"));
                             state.set_busy(false);
                         }

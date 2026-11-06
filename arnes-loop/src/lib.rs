@@ -68,19 +68,45 @@ pub async fn run_turn<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Co
     run_turn_recorded(client, conv, tools, dispatcher, max_turns, None).await
 }
 
-/// Prompts the user sent while a turn ran, handed to the model at the turn's
-/// next tool boundary. The UI offers what is waiting; the turn takes it; the
-/// UI then learns what was delivered and drops it from its queue.
+/// What passes between a running turn and the UI. In: prompts the user sent
+/// while the turn ran, handed to the model at its next tool boundary (the UI
+/// offers what is waiting, the turn takes it, the UI learns what was
+/// delivered and drops it from its queue). Out: the conversation as of the
+/// last finished round, so an interrupt keeps the work already done.
 #[derive(Debug, Clone, Default)]
-pub struct Inbox(std::sync::Arc<std::sync::Mutex<InboxState>>);
+pub struct TurnLink(std::sync::Arc<std::sync::Mutex<LinkState>>);
 
 #[derive(Debug, Default)]
-struct InboxState {
+struct LinkState {
     waiting: Vec<String>,
     delivered: Vec<String>,
+    checkpoint: Option<Conversation>,
+    /// Bumped on each checkpoint, so the UI redraws a round once.
+    generation: u64,
 }
 
-impl Inbox {
+impl TurnLink {
+    /// Record `conv` as the last consistent point of the running turn: every
+    /// tool use answered.
+    pub fn checkpoint(&self, conv: &Conversation) {
+        if let Ok(mut s) = self.0.lock() {
+            s.checkpoint = Some(conv.clone());
+            s.generation += 1;
+        }
+    }
+
+    /// The checkpoint, when one landed after generation `seen`: the UI
+    /// shows each finished round while the turn runs on.
+    pub fn progress_since(&self, seen: u64) -> Option<(u64, Conversation)> {
+        let s = self.0.lock().ok()?;
+        (s.generation > seen).then(|| s.checkpoint.clone().map(|c| (s.generation, c))).flatten()
+    }
+
+    /// The last checkpoint, taken: what an interrupted turn had finished.
+    pub fn take_checkpoint(&self) -> Option<Conversation> {
+        self.0.lock().ok().and_then(|mut s| s.checkpoint.take())
+    }
+
     /// Replace what is waiting with `prompts`, the UI's queue as it stands.
     pub fn offer(&self, prompts: Vec<String>) {
         if let Ok(mut s) = self.0.lock() {
@@ -114,8 +140,8 @@ pub async fn run_turn_recorded<D: ToolDispatcher>(client: &AnthropicClient, conv
     run_turn_with(client, conv, tools, dispatcher, max_turns, ledger, None).await
 }
 
-/// [`run_turn_recorded`], handing the model what `inbox` holds at each tool
-/// boundary.
+/// [`run_turn_recorded`], handing the model what `link` holds at each tool
+/// boundary and checkpointing each finished round into it.
 pub async fn run_turn_with<D: ToolDispatcher>(
     client: &AnthropicClient,
     conv: &mut Conversation,
@@ -123,7 +149,7 @@ pub async fn run_turn_with<D: ToolDispatcher>(
     dispatcher: &D,
     max_turns: u32,
     ledger: Option<&ledger::Ledger>,
-    inbox: Option<&Inbox>,
+    link: Option<&TurnLink>,
 ) -> Result<Usage> {
     let mut total_usage = Usage::default();
     for turn in 0..max_turns {
@@ -151,10 +177,13 @@ pub async fn run_turn_with<D: ToolDispatcher>(
                         }
                     }
                 }
-                if let Some(i) = inbox {
-                    result_blocks.extend(i.take().iter().map(|p| mid_turn_text(p)));
+                if let Some(l) = link {
+                    result_blocks.extend(l.take().iter().map(|p| mid_turn_text(p)));
                 }
                 conv.push(Message { role: Role::User, content: result_blocks });
+                if let Some(l) = link {
+                    l.checkpoint(conv);
+                }
             }
             // The server paused a long turn; resending the conversation
             // as-is lets it continue.
@@ -206,7 +235,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn a_prompt_sent_mid_turn_follows_the_tool_results_of_the_next_round() {
+    async fn a_prompt_sent_mid_turn_follows_the_tool_results_and_the_round_is_checkpointed() {
         const TOOL: &str = r#"{"id":"m1","type":"message","role":"assistant","model":"m","content":[{"type":"tool_use","id":"t1","name":"read_file","input":{}}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}"#;
         const DONE: &str =
             r#"{"id":"m2","type":"message","role":"assistant","model":"m","content":[{"type":"text","text":"done"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}"#;
@@ -214,7 +243,7 @@ mod tests {
         let client = AnthropicClient::new(None).with_base_url(url);
         let mut conv = Conversation::default();
         conv.push(Message::user_text("look at a"));
-        let inbox = Inbox::default();
+        let inbox = TurnLink::default();
         inbox.offer(vec!["also check b".into()]);
         run_turn_with(&client, &mut conv, &[], &FakeDispatcher, 4, None, Some(&inbox)).await.unwrap();
         let sent = seen.join().unwrap();
@@ -224,6 +253,13 @@ mod tests {
         assert!(matches!(results[0], ContentBlock::ToolResult { .. }), "tool results come first");
         assert!(matches!(&results[1], ContentBlock::Text { text } if text.ends_with("also check b")));
         assert_eq!(inbox.delivered(), ["also check b"]);
+        let (generation, shown) = inbox.progress_since(0).expect("the round is shown while the turn runs");
+        assert_eq!((generation, shown.messages.len()), (1, 3));
+        let kept = inbox.take_checkpoint().expect("the finished round is checkpointed");
+        assert_eq!(kept.messages.len(), 3, "the prompt, the tool use, and its answered results");
+        assert!(matches!(kept.messages[2].content[0], ContentBlock::ToolResult { .. }));
+        assert!(inbox.take_checkpoint().is_none(), "taken once");
+        assert!(inbox.progress_since(1).is_none(), "one round, one generation");
         assert!(inbox.take().is_empty() && inbox.delivered().is_empty(), "delivered once");
     }
 

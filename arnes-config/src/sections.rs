@@ -343,6 +343,9 @@ section! {
         /// (default: after the round's tool results, mid-turn) or
         /// `after-turn` (as the next prompt, once the turn ends).
         queued: Option<String>,
+        /// `on` (default): replies stream, drawn as they arrive. `off`: each
+        /// reply appears whole.
+        stream: Option<String>,
     }
 }
 

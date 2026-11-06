@@ -114,6 +114,11 @@ fn layout_conversation(state: &TuiState, width: u16, palette: &Palette) -> Vec<L
         }
         out.push(Line::plain(String::new(), Style::default(), 0));
     }
+    if !state.streaming.is_empty() {
+        let (label, color) = role_glyph(Role::Assistant, palette);
+        out.push(Line::plain(label, Style::default().fg(color), 0));
+        out.extend(markdown_lines(&state.streaming, width, 2, palette));
+    }
     out
 }
 

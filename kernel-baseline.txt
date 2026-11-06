@@ -9,25 +9,25 @@
 # the host functions blue calls: each one a capability a bidama may not grant itself; arnes_http is the one network call, choose-route hooks only, arnes_login (a key is typed at the tty and stored by the kernel, never handed to blue)
 host: arnes-blue 23
 
-# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts), installing the hosted provider table, /login and its secret effect, every declared provider in /model, the route facts paragraph, the held switch applied when a turn ends, mouse capture on and off with ui.wheel, live, offering the queue to a running turn and dropping what it delivered, the session job table and the background effect
-rust: arnes 2829
-# provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches, a scripted provider for multi-call turn tests (testing::scripted_server)
-rust: arnes-anthropic 592
+# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts), installing the hosted provider table, /login and its secret effect, every declared provider in /model, the route facts paragraph, the held switch applied when a turn ends, mouse capture on and off with ui.wheel, live, offering the queue to a running turn and dropping what it delivered, the session job table and the background effect, the stream sink per turn, each round shown live, an interrupt keeping finished rounds and the streamed text
+rust: arnes 2873
+# provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches, a scripted provider for multi-call turn tests (testing::scripted_server), the server-sent-event stream assembled into the same message (stream::Assembler)
+rust: arnes-anthropic 728
 # the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships, the provider export kind, the hosted tool kind
 rust: arnes-blue 802
-# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider, ui.wheel and ui.wheel-lines, history.walk, turn.queued
-rust: arnes-config 1899
+# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider, ui.wheel and ui.wheel-lines, history.walk, turn.queued, turn.stream
+rust: arnes-config 1904
 # conversation and usage types the kernel crates share
 rust: arnes-core 282
-# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours read from its declared facts, the route switch a tool asks for, held until its turn ends, the inbox a running turn drains at each tool boundary, Ctrl-B reaching the running Bash
-rust: arnes-loop 604
+# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours read from its declared facts, the route switch a tool asks for, held until its turn ends, the inbox a running turn drains at each tool boundary, Ctrl-B reaching the running Bash, each finished round checkpointed for the UI and for an interrupt
+rust: arnes-loop 622
 # MCP processes and sockets
 rust: arnes-mcp-client 811
 # durable formats and atomic writes, a private (0600) atomic write for a stored key
 rust: arnes-store 569
 # the built-in tools: filesystem, subprocess, guardrail, background jobs: a running subprocess detached, read (BashOutput) and stopped (KillShell)
 rust: arnes-tools 529
-# the render engine and the screen law: the per-frame hot path, the masked secret entry (a key typed at the tty never drawn or kept in history), the wheel scrolling the conversation pager (a mouse event is the terminal's), Up/Down walking the prompts that start with the typed text, the queue region above the prompt, Ctrl-Enter send-now and Ctrl-B background actions
-rust: arnes-tui 3075
+# the render engine and the screen law: the per-frame hot path, the masked secret entry (a key typed at the tty never drawn or kept in history), the wheel scrolling the conversation pager (a mouse event is the terminal's), Up/Down walking the prompts that start with the typed text, the queue region above the prompt, Ctrl-Enter send-now and Ctrl-B background actions, the reply drawn as it streams
+rust: arnes-tui 3103
 # the vigy runtime embedding
 rust: arnes-vigy 197

@@ -367,3 +367,18 @@ fn queued_prompts_stack_above_the_prompt_oldest_first() {
     let r = arnes_tui::layout::layout(70, 14, arnes_tui::chrome::demand(&st, t0));
     assert_eq!(r.queue.h, 4);
 }
+
+#[test]
+fn a_streaming_reply_draws_as_it_arrives_and_settles_away() {
+    let t0 = Instant::now();
+    let mut st = TuiState::new(Conversation::default(), "m");
+    settled(&mut st, t0);
+    st.activity_event(arnes_tui::activity::Event::Text("half of a ".into()), t0);
+    st.activity_event(arnes_tui::activity::Event::Text("reply".into()), t0);
+    assert!(screen(&frame(&st, 70, 14, t0)).contains("half of a reply"));
+    st.activity_event(arnes_tui::activity::Event::Restart, t0);
+    assert!(!screen(&frame(&st, 70, 14, t0)).contains("half of a"), "a restart voids what streamed");
+    st.activity_event(arnes_tui::activity::Event::Text("again".into()), t0);
+    st.settle_stream();
+    assert!(!screen(&frame(&st, 70, 14, t0)).contains("again"), "settled text lives in the conversation, not twice");
+}

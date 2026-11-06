@@ -8,7 +8,16 @@ use std::time::{Duration, Instant};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
     ToolStart(String),
-    ToolEnd { name: String, ok: bool },
+    ToolEnd {
+        name: String,
+        ok: bool,
+    },
+    /// Reply text as it streams.
+    Text(String),
+    /// Reasoning as it streams; counted, shown only as progress.
+    Thinking(String),
+    /// A new attempt began: what streamed is void.
+    Restart,
 }
 
 /// A finished tool, shown briefly as a tick.
@@ -51,6 +60,7 @@ impl Activity {
                 let took = started.map_or(Duration::ZERO, |s| now.saturating_duration_since(s));
                 self.tick = Some(Tick { name, ok, took, at: now });
             }
+            Event::Text(_) | Event::Thinking(_) | Event::Restart => {}
         }
     }
 

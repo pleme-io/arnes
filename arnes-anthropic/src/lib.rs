@@ -7,6 +7,7 @@
 
 pub mod catalog;
 pub mod reach;
+pub mod stream;
 
 use arnes_core::{ContentBlock, Conversation, EchoRule, Message, Role, StopReason, ThinkingMode, Tool, Usage};
 use serde::{Deserialize, Serialize};
@@ -174,6 +175,9 @@ pub struct AnthropicClient {
     pub tools: bool,
     pub provider: String,
     pub health: Health,
+    /// Set, each request streams and its text and thinking reach the sink
+    /// as they arrive; the response is the same assembled message.
+    pub stream: Option<stream::Sink>,
 }
 
 pub type Health = std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, (String, std::time::Instant)>>>;
@@ -223,6 +227,7 @@ impl AnthropicClient {
             tools: true,
             provider: "anthropic".to_owned(),
             health: Health::default(),
+            stream: None,
         }
     }
 
@@ -311,6 +316,7 @@ impl AnthropicClient {
                 ThinkingMode::On { effort: Some(e), .. } => Some(OutputConfig { effort: e.name() }),
                 _ => None,
             },
+            stream: false,
         }
     }
 
@@ -331,7 +337,7 @@ impl AnthropicClient {
     pub async fn send(&self, conv: &Conversation, tools: &[Tool]) -> Result<MessagesResponse> {
         let own = if self.tools { tools } else { &[] };
         let started = std::time::Instant::now();
-        let mut last = match self.send_as(conv, own, &conv.model).await {
+        let mut last = match self.send_as(conv, own, &conv.model, self.stream.as_ref()).await {
             Err(e) if e.warrants_failover() => {
                 self.note(&self.label, e.verdict());
                 e
@@ -348,7 +354,7 @@ impl AnthropicClient {
             tracing::debug!(route = %fb.label, error = %last, "provider failed; trying the next route");
             let tools = if fb.tools { tools } else { &[] };
             let started = std::time::Instant::now();
-            last = match fb.client.send_as(conv, tools, &fb.model).await {
+            last = match fb.client.send_as(conv, tools, &fb.model, self.stream.as_ref()).await {
                 Err(e) if e.warrants_failover() => {
                     self.note(&fb.label, e.verdict());
                     e
@@ -394,8 +400,9 @@ impl AnthropicClient {
     }
 
     /// One route, with its retries — no fallbacks.
-    async fn send_as(&self, conv: &Conversation, tools: &[Tool], model: &str) -> Result<MessagesResponse> {
-        let body = self.body(conv, tools, model);
+    async fn send_as(&self, conv: &Conversation, tools: &[Tool], model: &str, sink: Option<&stream::Sink>) -> Result<MessagesResponse> {
+        let mut body = self.body(conv, tools, model);
+        body.stream = sink.is_some();
         let url = format!("{}/v1/messages", self.base_url.trim_end_matches('/'));
         let mut attempt = 0u32;
         loop {
@@ -409,9 +416,18 @@ impl AnthropicClient {
             for (k, v) in &self.params.extra_headers {
                 req = req.header(k.as_str(), v.as_str());
             }
-            let resp = req.json(&body).send().await?;
+            let mut resp = req.json(&body).send().await?;
             let status = resp.status();
             let retry_after = resp.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(handan::parse_retry_after).map(handan::RetryAdvice::delay_now);
+            let sse = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).is_some_and(|t| t.starts_with("text/event-stream"));
+            if let (true, true, Some(sink)) = (status.is_success(), sse, sink) {
+                sink.send(stream::Delta::Restart);
+                let mut a = stream::Assembler::default();
+                while let Some(chunk) = resp.chunk().await? {
+                    a.feed(&chunk, sink)?;
+                }
+                return a.finish();
+            }
             let text = resp.text().await?;
             if status.is_success() {
                 return Ok(serde_json::from_str(&text)?);
@@ -476,6 +492,8 @@ struct MessagesRequest {
     thinking: Option<ThinkingParam>,
     #[serde(skip_serializing_if = "Option::is_none")]
     output_config: Option<OutputConfig>,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    stream: bool,
 }
 
 /// The API's response shape — normalized into our types.
@@ -561,7 +579,8 @@ pub mod testing {
                     }
                     let mut sink = vec![0u8; length];
                     reader.read_exact(&mut sink).unwrap();
-                    let reply = format!("HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
+                    let kind = if body.starts_with("event:") { "text/event-stream" } else { "application/json" };
+                    let reply = format!("HTTP/1.1 {status}\r\ncontent-type: {kind}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
                     stream.write_all(reply.as_bytes()).unwrap();
                     // The request's head, a blank line, then its body.
                     format!("{head}\r\n{}", String::from_utf8_lossy(&sink))

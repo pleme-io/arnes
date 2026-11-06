@@ -146,6 +146,10 @@ pub struct TuiState {
     pub clipboard: Option<String>,
     /// The terminal size, `(cols, rows)`; the runtime keeps it current.
     pub viewport: (u16, u16),
+    /// The reply streaming now, drawn as the assistant's live message.
+    pub streaming: String,
+    /// Characters of reasoning streamed so far this round.
+    pub streamed_thinking: usize,
 }
 
 /// Where the conversation pane is looking.
@@ -249,6 +253,8 @@ impl TuiState {
             pane: Pane::Live,
             clipboard: None,
             viewport: (80, 24),
+            streaming: String::new(),
+            streamed_thinking: 0,
         }
         .observed()
     }
@@ -354,10 +360,24 @@ impl TuiState {
 
     /// A tool event from the running turn.
     pub fn activity_event(&mut self, ev: crate::activity::Event, now: std::time::Instant) {
-        if matches!(ev, crate::activity::Event::ToolEnd { .. }) {
-            self.blips.fire(crate::look::Blip::Tick, now);
+        use crate::activity::Event;
+        match &ev {
+            Event::ToolEnd { .. } => self.blips.fire(crate::look::Blip::Tick, now),
+            Event::Text(t) => self.streaming.push_str(t),
+            Event::Thinking(t) => self.streamed_thinking += t.chars().count(),
+            Event::Restart => {
+                self.streaming.clear();
+                self.streamed_thinking = 0;
+            }
+            Event::ToolStart(_) => {}
         }
         self.activity.apply(ev, now);
+    }
+
+    /// A round or the turn finished: what streamed is now in the conversation.
+    pub fn settle_stream(&mut self) {
+        self.streaming.clear();
+        self.streamed_thinking = 0;
     }
 
     /// The approval question was answered.
