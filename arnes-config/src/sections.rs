@@ -346,6 +346,9 @@ section! {
         /// `on` (default): replies stream, drawn as they arrive. `off`: each
         /// reply appears whole.
         stream: Option<String>,
+        /// `on` (default): a turn the model's window cannot hold compacts
+        /// the earlier conversation into a summary and is retried once.
+        compact: Option<String>,
     }
 }
 

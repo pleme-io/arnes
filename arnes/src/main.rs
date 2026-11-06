@@ -410,6 +410,8 @@ fn new_conversation(cfg: &ArnesConfig) -> Conversation {
 struct TurnDone {
     conversation: Conversation,
     result: std::result::Result<(), String>,
+    /// The earlier conversation was compacted into a summary on the way.
+    compacted: bool,
 }
 
 /// Bracketed paste + the Kitty keyboard protocol's escape disambiguation
@@ -617,6 +619,8 @@ struct TurnKit<'a> {
     rounds: u32,
     /// Replies stream into the activity channel (`turn.stream`).
     stream: bool,
+    /// An overflowing turn compacts and is retried once (`turn.compact`).
+    compact: bool,
     /// The route's endpoint and whether it is the free local one, for the
     /// failure message.
     route: (String, bool),
@@ -700,7 +704,7 @@ fn apply_routed(live: &mut Live, state: &mut TuiState, answer: Option<std::resul
 }
 
 fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandle<()> {
-    let (rounds, route) = (kit.rounds, kit.route.clone());
+    let (rounds, route, compact) = (kit.rounds, kit.route.clone(), kit.compact);
     state.set_busy(true);
     state.last_error = None;
     // The turn owns a snapshot; the UI keeps rendering and reading keys, so
@@ -723,8 +727,14 @@ fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandl
     }
     let observed = Observed { inner: gate, tx: kit.activity.clone() };
     tokio::spawn(async move {
-        let result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await.map(|_| ()).map_err(|e| turn_failure(&e, &route));
-        let _ = tx.send(TurnDone { conversation, result }).await;
+        let mut result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await;
+        let mut compacted = false;
+        if compact && result.as_ref().is_err_and(arnes_loop::is_context_overflow) && matches!(arnes_loop::compact(&client, &mut conversation, None).await, Ok(Some(_))) {
+            compacted = true;
+            result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await;
+        }
+        let result = result.map(|_| ()).map_err(|e| turn_failure(&e, &route));
+        let _ = tx.send(TurnDone { conversation, result, compacted }).await;
     })
 }
 
@@ -1302,6 +1312,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                 activity: &act_tx,
                 rounds: live.knobs.max_rounds,
                 stream: live.knobs.stream,
+                compact: live.knobs.compact,
                 route: live.route(),
                 inbox: &inbox,
             }
@@ -1359,6 +1370,10 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
         while let Ok(done) = rx.try_recv() {
             turn = None;
             state.settle_stream();
+            if done.compacted {
+                state.conversation = Conversation::default();
+                state.activity.note("the earlier conversation was compacted into a summary", true, Instant::now());
+            }
             state.receive_conversation(done.conversation, Instant::now());
             if let Some(r) = recorder.as_mut() {
                 r.save(&state.conversation);
@@ -1762,6 +1777,21 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                                     state.mcp = Some(mcp_browser(&live.cfg, &live.pool, health.as_ref()).with_keymap(&state.nav_menu));
                                 }
                                 "notices" => state.panel = Some(("notices".into(), state.notice_lines())),
+                                "compact" if turn.is_some() => state.input.hint = Some("/compact waits for the turn to end".into()),
+                                "compact" => {
+                                    let focus = (!args.trim().is_empty()).then(|| args.trim().to_owned());
+                                    let (client, done, mut conversation) = (live.client.clone(), tx.clone(), state.conversation.clone());
+                                    state.set_busy(true);
+                                    state.activity.note("compacting the conversation", true, Instant::now());
+                                    turn = Some(tokio::spawn(async move {
+                                        let (result, compacted) = match arnes_loop::compact(&client, &mut conversation, focus.as_deref()).await {
+                                            Ok(Some(_)) => (Ok(()), true),
+                                            Ok(None) => (Err("nothing before this exchange to compact".to_owned()), false),
+                                            Err(e) => (Err(format!("/compact: {e}")), false),
+                                        };
+                                        let _ = done.send(TurnDone { conversation, result, compacted }).await;
+                                    }));
+                                }
                                 "profile" if args.trim().is_empty() => {
                                     let mut choices = live.file.profile_choices();
                                     choices.push(("-".into(), "no profile: the file alone".into()));
@@ -2669,7 +2699,7 @@ mod tests {
         let user = [decl("help")];
         let rows = picker_commands(&cfg, &reg(), &user);
         let names: Vec<_> = rows.iter().map(|(n, _)| n.as_str()).collect();
-        assert_eq!(names, ["clear", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim", "help"]);
+        assert_eq!(names, ["clear", "compact", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim", "help"]);
         assert_eq!(rows[0].1, "start a new conversation");
         assert_eq!(picker_commands(&ArnesConfig::default(), &arnes_blue::bidamas::Registry::default(), &[]), vec![]);
     }

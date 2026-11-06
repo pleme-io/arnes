@@ -22,6 +22,12 @@ def exports()
   render(
     [
       ["command", "clear", "clear", "start a new conversation"],
+      [
+        "command",
+        "compact",
+        "compact",
+        "summarize the earlier conversation; /compact <focus> keeps that above all"
+      ],
       ["command", "exit", "exit", "quit arnes"],
       ["command", "help", "help", "show keyboard shortcuts"],
       [
@@ -56,7 +62,21 @@ test "the exports are command rows, each naming its own meirei function"
   rs = rows(exports)
   names = column(rs, 1)
   assert names ==
-    %w[clear exit help login mcp mode model notices profile resume vigy vim]
+    %w[
+      clear
+      compact
+      exit
+      help
+      login
+      mcp
+      mode
+      model
+      notices
+      profile
+      resume
+      vigy
+      vim
+    ]
   assert every((k) -> k == "command", column(rs, 0))
   assert column(rs, 2) == names
   assert names != []
@@ -115,6 +135,12 @@ def resume(args)
     arnes_resume(args)
     nil
   end
+end
+
+# waive B0001: arnes host call
+def compact(args)
+  arnes_compact(args)
+  nil
 end
 
 # waive B0001: arnes host call

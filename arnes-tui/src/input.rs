@@ -27,6 +27,7 @@ pub const PASTE_CHIP_BYTES: usize = 1024;
 /// catalogue and the single source the runtime dispatches on.
 pub const COMMANDS: &[(&str, &str)] = &[
     ("clear", "start a new conversation"),
+    ("compact", "summarize the earlier conversation; /compact <focus> keeps that above all"),
     ("exit", "quit arnes"),
     ("help", "show keyboard shortcuts"),
     ("login", "store a provider's API key and move to it"),

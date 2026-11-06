@@ -563,6 +563,8 @@ pub struct Knobs {
     pub queued_mid_turn: bool,
     /// Replies stream and are drawn as they arrive.
     pub stream: bool,
+    /// A turn that overflows the window compacts and is retried once.
+    pub compact: bool,
     pub wheel_lines: usize,
 }
 
@@ -1317,6 +1319,7 @@ impl ArnesConfig {
             wheel_captured: true,
             queued_mid_turn: true,
             stream: true,
+            compact: true,
             wheel_lines: take(bounded("ui.wheel-lines", self.ui.wheel_lines, 1, 20, 3)) as usize,
         };
         let (wheel, r) = sections::one_of("ui.wheel", self.ui.wheel.as_deref(), &["conversation", "terminal"], "conversation");
@@ -1325,7 +1328,9 @@ impl ArnesConfig {
         refused.extend(r);
         let (stream, r) = sections::one_of("turn.stream", self.turn.stream.as_deref(), &["on", "off"], "on");
         refused.extend(r);
-        let k = Knobs { wheel_captured: wheel == "conversation", queued_mid_turn: queued == "next-tool", stream: stream == "on", ..k };
+        let (compact, r) = sections::one_of("turn.compact", self.turn.compact.as_deref(), &["on", "off"], "on");
+        refused.extend(r);
+        let k = Knobs { wheel_captured: wheel == "conversation", queued_mid_turn: queued == "next-tool", stream: stream == "on", compact: compact == "on", ..k };
         (k, refused)
     }
 
@@ -2290,7 +2295,7 @@ mod tests {
             free_route: FreeRouteSection { enabled: Some(false), endpoint: Some("http://gpubox:8080".into()), on_device: Some(false), on_device_endpoint: None, on_device_model: None },
             catalog: CatalogSection { max_age_hours: Some(1) },
             mentions: MentionsSection { max_files: Some(100), max_kib: Some(64) },
-            turn: TurnSection { max_rounds: Some(8), queued: Some("after-turn".into()), stream: Some("off".into()) },
+            turn: TurnSection { max_rounds: Some(8), queued: Some("after-turn".into()), stream: Some("off".into()), compact: Some("off".into()) },
             extras: HashMap::from([("escriba_socket".into(), "/tmp/e.sock".into())]),
             ..ArnesConfig::default()
         }
@@ -2375,7 +2380,7 @@ mod tests {
     fn knobs_are_bounded_and_refused_one_by_one() {
         let c = ArnesConfig {
             mcp: McpSection { connect_timeout_secs: Some(0), call_timeout_secs: Some(30), ..McpSection::default() },
-            turn: TurnSection { max_rounds: Some(1000), queued: None, stream: None },
+            turn: TurnSection { max_rounds: Some(1000), queued: None, stream: None, compact: None },
             ..ArnesConfig::default()
         };
         let (k, refused) = c.knobs();

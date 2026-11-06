@@ -341,6 +341,10 @@ impl Host {
         Ok(())
     }
 
+    fn compact(&mut self, focus: String) {
+        self.effects.push(arm("compact", focus.trim()));
+    }
+
     fn login(&mut self, provider: String) -> Result<(), Refusal> {
         let provider = named(&provider, "names a provider")?;
         self.effects.push(arm("login", &provider));
@@ -608,7 +612,7 @@ pub mod bidamas {
 
     /// Kernel commands that are the Rust twin of a hosted bidama command:
     /// served only with `:kernel-fallback`, and replaceable by a user command.
-    pub const KERNEL_TWINS: &[&str] = &["clear", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"];
+    pub const KERNEL_TWINS: &[&str] = &["clear", "compact", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"];
 
     /// The bidamas arnes hosts when the config names no others.
     pub const DEFAULT_HOSTED: &[&str] = &["meirei", "joutai", "kenban", "sanshou", "kenkou", "teikyou"];
@@ -1358,7 +1362,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
     fn the_default_bidamas_export_the_ported_features() {
         let reg = hosted();
         let names: Vec<_> = reg.commands().into_iter().map(|(n, _)| n).collect();
-        assert_eq!(names, ["clear", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"]);
+        assert_eq!(names, ["clear", "compact", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"]);
         assert_eq!(reg.commands()[0].1, "start a new conversation");
         assert!(reg.get(bidamas::Kind::Segment, "tools").is_some());
         assert!(!reg.owns_command("tools"));
@@ -1604,6 +1608,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
             ("arnes_notices", 0),
             ("arnes_open", 2),
             ("arnes_panel", 2),
+            ("arnes_compact", 1),
             ("arnes_login", 1),
             ("arnes_pick", 1),
             ("arnes_profile", 1),

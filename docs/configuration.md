@@ -234,6 +234,7 @@ scheduler's facts.
 | `bidamas` | none | bidamas to host beside `meirei` and `joutai`, by name; re-read on reload |
 | `turn.max_rounds` | 16 (1..=256) | most model calls in one turn |
 | `turn.stream` | on | each request streams (server-sent events) and the reply is drawn as it arrives; the assembled message is the one a plain call returns, so retries, fallbacks and the ledger are unchanged, and a server that answers with plain JSON is read whole. off: each reply appears whole |
+| `turn.compact` | on | a turn the model's window cannot hold (the `model_context_window_exceeded` stop, or a provider's 400 for the prompt's length) compacts: everything before the exchange in progress becomes a summary the model writes, the exchange stays word for word, and the turn is retried once. `/compact [focus]` does the same on demand. off: the overflow is an error |
 | `turn.queued` | next-tool | a prompt typed during a turn waits in the stack above the prompt (`Up` takes the newest back to edit) and reaches the model after the round's tool results, as a text block saying the user sent it mid-turn, then leaves the stack; a `/command` waits for the turn's end, and a mid-turn prompt skips `before-submit` hooks. `after-turn`: every queued prompt is the next prompt once the turn ends, through the hooks |
 | `mentions.max_files` | 20000 (1..=1000000) | files the `@` picker lists |
 | `mentions.max_kib` | 256 (1..=16384) | largest file an `@path` attaches |

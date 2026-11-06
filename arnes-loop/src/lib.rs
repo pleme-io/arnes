@@ -135,6 +135,61 @@ pub fn mid_turn_text(prompt: &str) -> ContentBlock {
     ContentBlock::Text { text: format!("[The user sent this while you were working:]\n{prompt}") }
 }
 
+/// The model's window is full: the stop reason says so, or the provider
+/// refused the request for its length (llama.cpp answers 400 "exceeds the
+/// available context size").
+#[must_use]
+pub fn is_context_overflow(e: &LoopError) -> bool {
+    match e {
+        LoopError::ContextWindowExceeded => true,
+        LoopError::Anthropic(arnes_anthropic::AnthropicError::Api { status: 400 | 413, body }) => {
+            let b = body.to_ascii_lowercase();
+            b.contains("context") && (b.contains("exceed") || b.contains("too long") || b.contains("too many tokens") || b.contains("context length") || b.contains("context size"))
+        }
+        _ => false,
+    }
+}
+
+/// Where a compaction cuts: the start of the exchange in progress, the last
+/// user message that is a prompt rather than tool results. Everything
+/// before it is summarized; it and what follows are kept word for word.
+#[must_use]
+pub fn compaction_cut(conv: &Conversation) -> Option<usize> {
+    conv.messages.iter().rposition(|m| m.role == Role::User && !m.content.iter().any(|b| matches!(b, ContentBlock::ToolResult { .. }))).filter(|&i| i > 0)
+}
+
+/// Replace everything before the exchange in progress with a summary the
+/// model writes of it (no tools, no stream). `focus`, when given, says what
+/// the summary must keep. Returns the summary call's usage; `Ok(None)` when
+/// there is nothing before the current exchange to summarize.
+///
+/// # Errors
+/// The summary request failed; the conversation is untouched.
+pub async fn compact(client: &AnthropicClient, conv: &mut Conversation, focus: Option<&str>) -> Result<Option<Usage>> {
+    let Some(cut) = compaction_cut(conv) else { return Ok(None) };
+    let mut ask = conv.clone();
+    ask.messages.truncate(cut);
+    let close = ask.messages.last().is_some_and(|m| m.role == Role::User);
+    if close {
+        ask.push(Message::assistant_text("(continuing)"));
+    }
+    let focus = focus.map_or(String::new(), |f| format!(" Above all keep: {f}."));
+    ask.push(Message::user_text(format!(
+        "Summarize the conversation so far for your own later use, in place of it: the goal, decisions and their reasons, files and commands that matter, what is done, what is open, and anything the user asked you to remember. Be complete but brief; write only the summary.{focus}"
+    )));
+    let mut quiet = client.clone();
+    quiet.stream = None;
+    let resp = quiet.send(&ask, &[]).await?;
+    let summary = resp.to_message().text();
+    let tail = conv.messages.split_off(cut);
+    conv.messages = vec![
+        Message::user_text(format!("[A summary of the earlier conversation, which you wrote when it was compacted:]\n{summary}")),
+        Message::assistant_text("Understood; I continue from that summary."),
+    ];
+    conv.messages.extend(tail);
+    Ok(Some(resp.usage))
+}
+
 /// [`run_turn`], recording every API call in `ledger` as it returns.
 pub async fn run_turn_recorded<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Conversation, tools: &[Tool], dispatcher: &D, max_turns: u32, ledger: Option<&ledger::Ledger>) -> Result<Usage> {
     run_turn_with(client, conv, tools, dispatcher, max_turns, ledger, None).await
@@ -261,6 +316,40 @@ mod tests {
         assert!(inbox.take_checkpoint().is_none(), "taken once");
         assert!(inbox.progress_since(1).is_none(), "one round, one generation");
         assert!(inbox.take().is_empty() && inbox.delivered().is_empty(), "delivered once");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn compaction_summarizes_before_the_exchange_in_progress_and_keeps_it() {
+        const SUMMARY: &str =
+            r#"{"id":"s","type":"message","role":"assistant","model":"m","content":[{"type":"text","text":"we fixed a.rs"}],"stop_reason":"end_turn","usage":{"input_tokens":9,"output_tokens":3}}"#;
+        let mut conv = Conversation::default();
+        conv.push(Message::user_text("fix a.rs"));
+        conv.push(Message::assistant_text("fixed"));
+        conv.push(Message::user_text("now b.rs"));
+        conv.push(Message { role: Role::Assistant, content: vec![ContentBlock::ToolUse { id: "t".into(), name: "Read".into(), input: serde_json::json!({}) }] });
+        conv.push(Message { role: Role::User, content: vec![ContentBlock::ToolResult { tool_use_id: "t".into(), content: "b".into(), is_error: false }] });
+        assert_eq!(compaction_cut(&conv), Some(2), "tool results are not a prompt");
+        let (url, seen) = arnes_anthropic::testing::one_shot_server("200 OK", SUMMARY);
+        let client = AnthropicClient::new(None).with_base_url(url);
+        assert!(compact(&client, &mut conv, Some("the b.rs plan")).await.unwrap().is_some());
+        let asked = seen.join().unwrap();
+        assert!(asked.contains("fix a.rs") && !asked.contains("now b.rs") && asked.contains("the b.rs plan") && !asked.contains("\"tools\""), "{asked}");
+        assert_eq!(conv.messages.len(), 5);
+        assert!(conv.messages[0].text().contains("we fixed a.rs"));
+        assert_eq!(conv.messages[2].text(), "now b.rs", "the exchange in progress is kept word for word");
+        let mut fresh = Conversation::default();
+        fresh.push(Message::user_text("only prompt"));
+        assert!(compact(&client, &mut fresh, None).await.unwrap().is_none(), "nothing before it, nothing to do");
+    }
+
+    #[test]
+    fn an_overflow_is_the_stop_reason_or_a_providers_length_refusal() {
+        let api = |status, body: &str| LoopError::Anthropic(arnes_anthropic::AnthropicError::Api { status, body: body.into() });
+        assert!(is_context_overflow(&LoopError::ContextWindowExceeded));
+        assert!(is_context_overflow(&api(400, r#"{"error":{"message":"the request exceeds the available context size, try increasing it"}}"#)));
+        assert!(is_context_overflow(&api(400, "prompt is too long: context length 200000")));
+        assert!(!is_context_overflow(&api(400, "invalid tool schema")));
+        assert!(!is_context_overflow(&api(500, "context exceeded")), "a server error is not a length refusal");
     }
 
     #[tokio::test]

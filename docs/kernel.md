@@ -36,6 +36,7 @@ capability-scopes bidamas, and reloads them.
 | navigation grammar | egaku `Navigator` | one grammar on every surface |
 | provider transport: wire, streaming, retries, fallback execution, each route's auth header (`x-api-key` or bearer), every failure judged by `handan` into one typed verdict (`unauthorized`, `throttled`, `server-error`, `unreachable`, `timed-out`), kept per route as its health beside the route that served the turn and its latency | `arnes-anthropic` | network and secrets |
 | streaming: each request asks for server-sent events (`turn.stream`), text and thinking deltas reach the UI as they arrive, and the stream is assembled into the message a plain call returns, so retries, fallbacks and the ledger see no difference; a JSON answer is read whole | `arnes-anthropic` (`stream`) | network |
+| compaction: a turn the window cannot hold (`is_context_overflow`) compacts and is retried once (`turn.compact`); `/compact [focus]` on demand; the cut is the last prompt, so the exchange in progress is never summarized | `arnes-loop` (`compact`, `compaction_cut`), `arnes/src/main.rs` | the conversation is the kernel's |
 | live rounds: each finished tool round is checkpointed (`TurnLink::checkpoint`) and drawn at once; `Esc` keeps every finished round and the text streamed so far | `arnes-loop`, `arnes/src/main.rs` | the turn's conversation is the kernel's |
 | MCP client and pool | `arnes-mcp-client` | processes and sockets |
 | background Bash jobs: `Ctrl-B` detaches the command running in the foreground, `run_in_background` starts one detached; `BashOutput` reads what is new, `KillShell` stops it; one table per session survives reloads | `arnes-tools` (`Jobs`), `arnes/src/main.rs` (`session_jobs`) | processes |
@@ -57,7 +58,7 @@ found while writing one moves into blue's public `bidamas/` instead (§3).
 
 | bidama | kanji | what | status |
 |---|---|---|---|
-| `meirei` | 命令 | every built-in slash command: `/clear`, `/exit`, `/help`, `/login`, `/mcp`, `/mode`, `/model`, `/notices`, `/profile`, `/resume`, `/vigy`, `/vim` | **landed** |
+| `meirei` | 命令 | every built-in slash command: `/clear`, `/compact`, `/exit`, `/help`, `/login`, `/mcp`, `/mode`, `/model`, `/notices`, `/profile`, `/resume`, `/vigy`, `/vim` | **landed** |
 | `joutai` | 状態 | status-line segments: model, effort, tools, permission mode, profile, over one `joutai::segment` | **landed** |
 | panels | | `/vigy`, `/mcp` views | H7, H11 |
 | activity | | the activity line's text | H8 |
@@ -147,6 +148,7 @@ a successful call, so a bidama that raises changes nothing.
 | notices | `arnes_notices()` | read | done |
 | sessions | `arnes_sessions()`, `arnes_resume(query)` | read / effect, runs the kernel's resume arm | done |
 | routes | `arnes_state("route")`, `arnes_route_switch(name)`, `arnes_pick("model")` | read / effect, runs the kernel's model arm (catalogue, client rebuild, live switch); from a tool inside a turn the kernel holds the arm and runs it when the turn ends | done |
+| compact | `arnes_compact(focus)` | effect, runs the kernel's compact arm: the earlier conversation summarized by the model, the exchange in progress kept | done |
 | login | `arnes_login(provider)`, `arnes_pick("login")` | effect, runs the kernel's login arm: a masked entry whose key the kernel stores and never hands to blue | done |
 | profiles | `arnes_pick("profile")`, `arnes_profile(name)` | effect, runs the kernel's profile arm (the file re-applied with the overlay, live) | done |
 | policies | hosted `hook` exports on `mcp-lazy`, `mcp-probe`, `choose-profile`, `skills`, `choose-route`, asked through `arnes_blue::policy` (`policy_with` for `choose-route`, which carries the reach) | a pure answer: first text wins, nil abstains, an effect is refused | done |

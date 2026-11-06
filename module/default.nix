@@ -182,6 +182,7 @@ let
       maxRounds = leaf (between 1 256) "Most model calls in one turn. null → 16.";
       queued = leaf (types.enum [ "next-tool" "after-turn" ]) "When a prompt typed during a turn reaches the model. null → next-tool.";
       stream = leaf onOff "Replies stream and are drawn as they arrive. null → on.";
+      compact = leaf onOff "A turn the window cannot hold compacts the earlier conversation and is retried once. null → on.";
     };
     skills = {
       enabled = leaf types.bool "Load Claude-Code-style SKILL.md skills. null → on.";
