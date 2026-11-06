@@ -341,7 +341,7 @@ in
       type = types.nullOr types.str;
       default = null;
       example = "/Users/me/.config/deepseek/api-key";
-      description = "File holding the API key (e.g. a sops-nix secret path). null → the provider's env var. On a fleet node the claudeProviders registry sets it for glm (nix lib/claude-providers.nix).";
+      description = "File holding the API key (e.g. a sops-nix secret path). null → the provider's env var. For glm, a pay-as-you-go Z.ai key, never the Coding Plan key.";
     };
 
     theme = mkOption {

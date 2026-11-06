@@ -80,7 +80,7 @@ notices, extension state and session file untouched. What each part does:
 | `provedor` | `local` \| `deepseek` \| `anthropic` \| `glm` \| `messages` | `local` | the free local route is the default; a paid provider is used once configured with its key; `glm` is Z.ai's coding plan at `https://api.z.ai/api/anthropic`, the endpoint `claude-glm` runs on; `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
 | `modelo` | string | the provider's (`local`, `deepseek-flash`, `claude-opus-5-5`, `glm-5.3`) | checked against the provider's live catalogue at startup |
 | `endpoint` | URL | the provider's (`http://127.0.0.1:8080` for local) | |
-| `api_key_file` | path | none | wins over the env var. On a fleet node a `glm` fallback with its key file is declared by nix: `lib/claude-providers.nix` (`arnesProvider`) through the `pleme.claudeProviders` home-manager arm, on each machine that holds the key |
+| `api_key_file` | path | none | wins over the env var. `glm` takes a pay-as-you-go Z.ai key: the Coding Plan key is for Z.ai's listed tools only, and nix never gives it to arnes (`lib/claude-providers.nix`, `arnesProvider = null`) |
 | `key_env` | env var name | `LOCAL_LLM_API_KEY` / `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` / `ZAI_API_KEY` | |
 | `api_version` | string | `2023-06-01` | |
 | `system_note` | string | none | added to the system prompt while this route answers; travels with the route |
