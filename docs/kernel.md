@@ -38,6 +38,8 @@ capability-scopes bidamas, and reloads them.
 | tool loop, permission gate, guardrail | `arnes-loop` | a bidama may veto, never grant |
 | ledger, sessions, layout, retention; each call recorded against the route that served it, at that route's declared price, in its provider's own peak hours (each provider's `peak` fact) | `arnes-loop/ledger.rs`, `arnes-store` | durable formats, atomic writes |
 | config loading, hot reload, routes as data (the `messages` provider, route facts); the typed reading of provider facts (`providers.rs`: each `provider <name> <fact> <value>` row a hosted bidama declares, `teikyou` shipping the five; a bad fact refused alone, an empty table refused whole; the table swapped in place when the hosted bidamas reload) | `arnes-config`, shikumi, `arnes-blue` (`Registry::providers`) | the declaration layer: a fact reaches the wire, so it is parsed once at the border, and a new provider is rows, not Rust |
+| login: `/login <provider>` takes the key in a masked entry (never drawn, never in history) and writes it 0600 under `$XDG_STATE_HOME/arnes/keys`, read after `:api-key-file` and `key-env` | `arnes-tui` (`open_secret`), `arnes-store` (`write_private`), `arnes-config` (`store_login_key`) | a secret at the tty and on disk; blue never sees it |
+| the route a tool asks for: a blue tool's `arnes_route_switch` is held by the gate and run by the kernel's model arm when the turn ends, after the user approved the call | `arnes-loop` (`take_held`), `arnes/src/main.rs` | a turn's conversation is the kernel's; a switch mid-turn would split it |
 | vigy runtime embedding | `arnes-vigy`, vigy-runtime | the scheduler is vigy's |
 
 ## 2. The bidamas
@@ -50,13 +52,13 @@ found while writing one moves into blue's public `bidamas/` instead (§3).
 
 | bidama | kanji | what | status |
 |---|---|---|---|
-| `meirei` | 命令 | every built-in slash command: `/clear`, `/exit`, `/help`, `/mcp`, `/mode`, `/model`, `/notices`, `/profile`, `/resume`, `/vigy`, `/vim` | **landed** |
+| `meirei` | 命令 | every built-in slash command: `/clear`, `/exit`, `/help`, `/login`, `/mcp`, `/mode`, `/model`, `/notices`, `/profile`, `/resume`, `/vigy`, `/vim` | **landed** |
 | `joutai` | 状態 | status-line segments: model, effort, tools, permission mode, profile, over one `joutai::segment` | **landed** |
 | panels | | `/vigy`, `/mcp` views | H7, H11 |
 | activity | | the activity line's text | H8 |
 | notices | | notice policy: keep, fold, drop, lifetime | H8 |
 | `kenban` | 鍵盤 | the default key bindings, one `bind <action> <chord>` export each | **landed** |
-| `teikyou` | 提供 | the model providers, one `provider <name> <fact> <value>` export per fact (endpoint, model, key, auth, echo, catalogue, thinking budget, peak hours); a new provider is rows, not a build | **landed** |
+| `teikyou` | 提供 | the model providers, one `provider <name> <fact> <value>` export per fact (endpoint, model, key, auth, echo, catalogue, thinking budget, peak hours); a new provider is rows, not a build; and the `switch_model` tool (a hosted `tool` export) that moves the session when the user asks the model | **landed** |
 | routes | | route ranking, start-on-free policy, `/model` | H6 |
 | tools | | declaring the built-in tools, blue tools | H10 |
 | `sanshou` | 参照 | `@path` mentions attached to a prompt, a before-submit hook | **landed** |
@@ -111,7 +113,7 @@ skill). Kept current each rung.
 | `joutai` | `yushutsu`, `ronri` | exports as rows; tests over them |
 | `kenban` | `yushutsu`, `ronri`, `moji` (`includes`) | the bindings as rows; tests over them |
 | `kenkou` | `yushutsu`, `deeta` (`get_str`, `get_int`) | total JSON reads of each probe |
-| `teikyou` | `yushutsu`, `ronri` (`every`), `retsu` (`first`) | the provider table as rows; tests over them |
+| `teikyou` | `yushutsu`, `ronri` (`every`), `retsu` (`first`, `last`) | the provider table as rows; tests over them |
 | `sanshou` | `yushutsu`, `moji` (`words`, `starts_with`, `ends_with`, `take_chars`, `drop_chars`, `includes`), `retsu` (`contains`, `push`) | tokenising and de-duplicating mentions |
 
 blue's whole standard distribution is on every hosted bidama's path at run
@@ -139,7 +141,8 @@ a successful call, so a bidama that raises changes nothing.
 | state and settings | `arnes_state(key)` (model, effort, permission-mode, tools, vim, busy), `arnes_set(key, value)` (vim, permission-mode) | read / effect the kernel validates, then runs the arm it replaces | done |
 | notices | `arnes_notices()` | read | done |
 | sessions | `arnes_sessions()`, `arnes_resume(query)` | read / effect, runs the kernel's resume arm | done |
-| routes | `arnes_state("route")`, `arnes_route_switch(name)`, `arnes_pick("model")` | read / effect, runs the kernel's model arm (catalogue, client rebuild, live switch) | done |
+| routes | `arnes_state("route")`, `arnes_route_switch(name)`, `arnes_pick("model")` | read / effect, runs the kernel's model arm (catalogue, client rebuild, live switch); from a tool inside a turn the kernel holds the arm and runs it when the turn ends | done |
+| login | `arnes_login(provider)`, `arnes_pick("login")` | effect, runs the kernel's login arm: a masked entry whose key the kernel stores and never hands to blue | done |
 | profiles | `arnes_pick("profile")`, `arnes_profile(name)` | effect, runs the kernel's profile arm (the file re-applied with the overlay, live) | done |
 | policies | hosted `hook` exports on `mcp-lazy`, `mcp-probe`, `choose-profile`, `skills`, `choose-route`, asked through `arnes_blue::policy` (`policy_with` for `choose-route`, which carries the reach) | a pure answer: first text wins, nil abstains, an effect is refused | done |
 | kernel views | `arnes_open(view, args)` for `mcp` and `vigy` | effect, opens the kernel's own view | done |

@@ -74,12 +74,34 @@ pub fn sweep(layout: &Layout, policy: &Policy, now: SystemTime) -> Swept {
 /// # Errors
 /// Any I/O failure, with the temp file removed.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    write_with(path, bytes, None)
+}
+
+/// [`write_atomic`] for a secret: the file is created readable and
+/// writable by its owner alone (0600) before a byte is written.
+///
+/// # Errors
+/// As [`write_atomic`].
+pub fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    write_with(path, bytes, Some(0o600))
+}
+
+fn write_with(path: &Path, bytes: &[u8], mode: Option<u32>) -> std::io::Result<()> {
     let dir = path.parent().filter(|d| !d.as_os_str().is_empty()).unwrap_or(Path::new("."));
     std::fs::create_dir_all(dir)?;
     let name = path.file_name().map_or_else(|| "tmp".into(), |n| n.to_string_lossy().into_owned());
     let tmp = dir.join(format!(".{name}.{}.tmp", std::process::id()));
     let result = (|| {
-        let mut f = std::fs::File::create(&tmp)?;
+        let mut open = std::fs::OpenOptions::new();
+        open.write(true).create(true).truncate(true);
+        #[cfg(unix)]
+        if let Some(m) = mode {
+            use std::os::unix::fs::OpenOptionsExt;
+            open.mode(m);
+        }
+        #[cfg(not(unix))]
+        let _ = mode;
+        let mut f = open.open(&tmp)?;
         f.write_all(bytes)?;
         f.sync_all()?;
         std::fs::rename(&tmp, path)
@@ -93,6 +115,17 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_private_write_is_readable_by_its_owner_alone() {
+        use std::os::unix::fs::PermissionsExt;
+        let d = tempfile::tempdir().unwrap();
+        let p = Layout::under(d.path()).login_key("glm");
+        write_private(&p, b"k").unwrap();
+        assert_eq!(std::fs::metadata(&p).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(std::fs::read(&p).unwrap(), b"k");
+    }
 
     #[test]
     fn sweep_of_an_empty_layout_touches_nothing() {

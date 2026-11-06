@@ -29,6 +29,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("clear", "start a new conversation"),
     ("exit", "quit arnes"),
     ("help", "show keyboard shortcuts"),
+    ("login", "store a provider's API key and move to it"),
     ("mcp", "browse MCP servers, tools and schemas"),
     ("model", "switch model or provider route"),
     ("mode", "permission mode: default | plan | bypass"),
@@ -101,6 +102,12 @@ pub enum Effect {
     },
     /// Leave the live tail and scroll back through the conversation.
     Scrollback,
+    /// What was typed in a secret entry ([`InputState::open_secret`]):
+    /// never shown, never kept in history.
+    Secret {
+        label: String,
+        value: String,
+    },
 }
 
 /// `Ctrl-R` incremental reverse search over history.
@@ -181,6 +188,9 @@ pub struct InputState {
     pub user_commands: Vec<(String, String)>,
     /// The pickers' navigation keymap (`keys.nav.filter`); unset, egaku's.
     pub nav_filter: Option<NavKeymap>,
+    /// A secret entry is open for this label: the prompt draws masked and
+    /// Enter answers [`Effect::Secret`].
+    pub masked: Option<String>,
 }
 
 impl InputState {
@@ -598,6 +608,12 @@ impl InputState {
     }
 
     fn cancel(&mut self, busy: bool, now: Instant) -> Vec<Effect> {
+        if self.masked.take().is_some() {
+            self.editor.clear();
+            self.pastes.clear();
+            self.hint = Some("cancelled; nothing stored".into());
+            return vec![];
+        }
         if self.show_help {
             self.show_help = false;
             return vec![];
@@ -620,7 +636,23 @@ impl InputState {
         vec![]
     }
 
+    /// Take the next prompt as a secret for `label`: masked, out of history,
+    /// Esc cancels.
+    pub fn open_secret(&mut self, label: &str, hint: &str) {
+        self.editor.clear();
+        self.pastes.clear();
+        self.masked = Some(label.to_owned());
+        self.hint = Some(hint.to_owned());
+    }
+
     fn submit(&mut self, busy: bool) -> Vec<Effect> {
+        if let Some(label) = self.masked.take() {
+            let value = self.expand(&self.editor.text());
+            self.editor.clear();
+            self.pastes.clear();
+            self.hint = None;
+            return vec![Effect::Secret { label, value }];
+        }
         let text = self.editor.text();
         // `\` + Enter is the portable newline.
         if text.ends_with('\\') && self.editor.cursor().1 > 0 && self.editor.on_last_row() {
@@ -813,6 +845,25 @@ impl InputState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_secret_entry_answers_once_and_never_reaches_history() {
+        let mut i = typed("before");
+        i.open_secret("glm", "paste the glm API key");
+        assert!(i.editor.is_empty(), "the half-typed prompt is not sent as the key");
+        for c in "zk-123".chars() {
+            i.type_char(c);
+        }
+        assert_eq!(i.apply(Action::Submit, false, t0()), vec![Effect::Secret { label: "glm".into(), value: "zk-123".into() }]);
+        assert!(i.masked.is_none() && i.editor.is_empty());
+        assert!(!i.history().iter().any(|h| h.contains("zk-123")), "{:?}", i.history());
+        i.open_secret("glm", "again");
+        i.type_char('x');
+        assert_eq!(i.apply(Action::Cancel, false, t0()), vec![]);
+        assert!(i.masked.is_none() && i.editor.is_empty(), "Esc cancels and drops what was typed");
+        i.type_char('y');
+        assert_eq!(i.apply(Action::Submit, false, t0()), vec![Effect::Submit("y".into())], "the next Enter is an ordinary prompt");
+    }
 
     fn typed(s: &str) -> InputState {
         let mut i = InputState::new();

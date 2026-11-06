@@ -230,6 +230,9 @@ pub struct GatedDispatcher {
     /// guardrail's production engine — the rule set the Claude Code hook
     /// enforces — screening Bash commands and Write/Edit content.
     guard: Guard,
+    /// Kernel arms a blue tool asked for during the turn (`arnes_route_switch`),
+    /// held for the kernel to run once the turn ends.
+    held: Arc<std::sync::Mutex<Vec<(String, String)>>>,
     approver: Arc<dyn Approver>,
     policy: Mutex<Policy>,
     always: Mutex<HashSet<String>>,
@@ -245,6 +248,7 @@ impl GatedDispatcher {
             skills: None,
             hooks: arnes_blue::Hooks::default(),
             guard: Guard::Off,
+            held: Arc::default(),
             approver,
             policy: Mutex::new(policy),
             always: Mutex::new(HashSet::new()),
@@ -253,6 +257,11 @@ impl GatedDispatcher {
 
     /// Screen side-effecting built-ins with guardrail.
     #[must_use]
+    /// The kernel arms blue tools asked for since the last take, in order.
+    pub fn take_held(&self) -> Vec<(String, String)> {
+        self.held.lock().map(|mut h| std::mem::take(&mut *h)).unwrap_or_default()
+    }
+
     pub fn with_guard(mut self, guard: Guard) -> Self {
         self.guard = guard;
         self
@@ -418,7 +427,14 @@ impl ToolDispatcher for GatedDispatcher {
         }
         if self.blue.owns(&tool) {
             let outcome = self.blue.call(&tool, &args).await.map_err(|e| LoopError::Dispatch(e.to_string()))?;
-            forward_effects(&tool, &outcome.effects);
+            let (held, rest): (Vec<_>, Vec<_>) = outcome.effects.iter().cloned().partition(|e| matches!(e, arnes_blue::Effect::Arm { arm, .. } if arm == "model"));
+            if let Ok(mut h) = self.held.lock() {
+                h.extend(held.into_iter().filter_map(|e| match e {
+                    arnes_blue::Effect::Arm { arm, args } => Some((arm, args)),
+                    _ => None,
+                }));
+            }
+            forward_effects(&tool, &rest);
             return Ok(outcome.text().to_owned());
         }
         Ok(self.pool.call(&tool, &args).await?)
@@ -437,7 +453,7 @@ fn forward_effects(tool: &str, effects: &[arnes_blue::Effect]) {
             Effect::Toast(Level::Error, t) => tracing::error!("{tool}: {t}"),
             Effect::Insert(_) => tracing::warn!("{tool}: arnes_insert cannot edit the prompt from inside a turn"),
             Effect::Arm { .. } | Effect::Panel { .. } | Effect::Set { .. } => {
-                tracing::warn!("{tool}: arnes_clear, arnes_exit and arnes_panel work from a command, not inside a turn");
+                tracing::warn!("{tool}: only arnes_route_switch is applied from inside a turn (after it ends); arnes_clear, arnes_exit, arnes_panel and arnes_set work from a command");
             }
         }
     }
@@ -607,6 +623,32 @@ mod tests {
         let err = g.dispatch("poke", &serde_json::json!({"text": "hi"})).await.unwrap_err();
         assert!(err.to_string().contains("declined"), "{err}");
         assert_eq!(approver.1.lock().unwrap().as_slice(), ["poke"], "only the side-effecting blue tool was asked");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_tools_route_switch_is_held_for_the_kernel_after_approval() {
+        let dir = std::env::temp_dir().join(format!("arnes-gate-held-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("s.b");
+        std::fs::write(&path, "def go(input)\n  arnes_route_switch(json_get(json_parse(input), :arg))\n  \"moving\"\nend\n").unwrap();
+        let spec = arnes_blue::ToolSpec { name: "switch_model".into(), description: String::new(), schema: None, read_only: false, script: arnes_blue::Script::new(&path, "go") };
+        let approver = Arc::new(Scripted(Verdict::Allow, Mutex::new(vec![])));
+        let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default()).with_blue_tools(arnes_blue::Tools::new(vec![spec]));
+        assert_eq!(g.dispatch("switch_model", &serde_json::json!({"arg": "glm"})).await.unwrap(), "moving");
+        assert_eq!(approver.1.lock().unwrap().as_slice(), ["switch_model"], "the user approved the switch");
+        assert_eq!(g.take_held(), [("model".to_owned(), "glm".to_owned())]);
+        assert!(g.take_held().is_empty(), "taken once");
+        let denied =
+            GatedDispatcher::new(pool(), Arc::new(Scripted(Verdict::Deny("no".into()), Mutex::new(vec![]))), Policy::default()).with_blue_tools(arnes_blue::Tools::new(vec![arnes_blue::ToolSpec {
+                name: "switch_model".into(),
+                description: String::new(),
+                schema: None,
+                read_only: false,
+                script: arnes_blue::Script::new(&path, "go"),
+            }]));
+        assert!(denied.dispatch("switch_model", &serde_json::json!({"arg": "glm"})).await.is_err());
+        assert!(denied.take_held().is_empty(), "a declined switch is never held");
         std::fs::remove_dir_all(dir).unwrap();
     }
 

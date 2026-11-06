@@ -361,6 +361,9 @@ section! {
         prompt: Option<String>,
         /// Largest context file read, KiB. 1..=4096, default 64.
         max_kib: Option<u32>,
+        /// Tell the model which route serves it and which others it can be
+        /// moved to. Default on.
+        route_facts: Option<bool>,
     }
 }
 

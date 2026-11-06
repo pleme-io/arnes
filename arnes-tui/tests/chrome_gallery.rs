@@ -334,3 +334,19 @@ fn working_scene_gallery() {
     }
     assert!(s.contains("query on postgres") && s.contains("\u{d7}2"));
 }
+
+#[test]
+fn a_secret_entry_draws_masked() {
+    let t0 = Instant::now();
+    let mut st = TuiState::new(Conversation::default(), "m");
+    settled(&mut st, t0);
+    st.input.open_secret("glm", "paste the glm API key");
+    for c in "zk-secret".chars() {
+        st.input.type_char(c);
+    }
+    for (w, h) in [(70, 14), (24, 8)] {
+        let s = screen(&frame(&st, w, h, t0));
+        assert!(!s.contains("zk-secret") && !s.contains("secret"), "{s}");
+    }
+    assert!(screen(&frame(&st, 70, 14, t0)).contains("glm key (hidden)"));
+}

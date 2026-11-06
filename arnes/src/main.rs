@@ -371,8 +371,30 @@ fn system_prompt(cfg: &ArnesConfig, skills: &arnes_tools::skills::Skills) -> (Op
         }
     }
     parts.extend(cfg.context.prompt.iter().cloned());
+    if cfg.context.route_facts != Some(false) {
+        parts.push(route_facts(cfg));
+    }
     parts.extend(skills.listing());
     ((!parts.is_empty()).then(|| parts.join("\n\n")), notes)
+}
+
+/// The route facts paragraph: who serves this session and where else it can
+/// go, so the model answers "what model are you" from facts and can move the
+/// user with `switch_model`.
+fn route_facts(cfg: &ArnesConfig) -> String {
+    let label = cfg.route.label.clone().unwrap_or_else(|| cfg.provedor.clone());
+    let mut others: Vec<String> = cfg.fallbacks.iter().map(|r| r.label.clone().unwrap_or_else(|| r.provedor.clone())).filter(|n| *n != label).collect();
+    let routed: Vec<String> = std::iter::once(cfg.provedor.clone()).chain(cfg.fallbacks.iter().map(|r| r.provedor.clone())).collect();
+    for p in arnes_config::Provider::all().into_iter().filter(|p| !p.endpoint().is_empty() && !routed.iter().any(|r| r == p.name())) {
+        let keyed = cfg.on_provider(p.name()).primary().is_ok();
+        others.push(if keyed { p.name().to_owned() } else { format!("{} (no key yet: the user runs /login {})", p.name(), p.name()) });
+    }
+    let others = if others.is_empty() { "none".to_owned() } else { others.join(", ") };
+    format!(
+        "You run inside arnes, a terminal agent harness. This session is served by the model {} through the arnes route {label} (provider {}). Other routes and providers: {others}. When the user asks to change model or provider, call the switch_model tool with one of those names; the switch takes effect after this turn and the conversation moves with it.",
+        cfg.model(),
+        cfg.provedor
+    )
 }
 
 fn new_conversation(cfg: &ArnesConfig) -> Conversation {
@@ -717,6 +739,27 @@ struct Live {
 }
 
 impl Live {
+    /// `/model <pick>`: the conversation moves with the switch (same
+    /// messages, same prompt), the next turn on the new route.
+    fn move_to(&mut self, pick: &str, catalog: Option<&arnes_anthropic::catalog::Catalog>, state: &mut TuiState) {
+        match switch_model(&self.base, &self.cfg, pick, catalog) {
+            Ok(next) => match self.switch_route(&next, state) {
+                Ok(refused) => {
+                    state.conversation.system = system_prompt(&next, &self.skills).0;
+                    state.input.hint = Some(format!("now talking to {} on {}", next.model(), next.provedor));
+                    if !refused.is_empty() {
+                        state.set_error(format!("route skipped: {}", refused.join("; ")));
+                    }
+                    self.cfg = next;
+                    self.route_source = "manual";
+                    probe_local(&self.cfg);
+                }
+                Err(e) => state.set_error(format!("/model: {e}")),
+            },
+            Err(e) => state.set_error(format!("/model: {e}")),
+        }
+    }
+
     /// `loaded` (the file) with the active profile applied. A profile that
     /// no longer exists is dropped with a notice and the file applies alone.
     fn profiled(&mut self, mut loaded: arnes_config::Loaded, state: &mut TuiState) -> arnes_config::Loaded {
@@ -1272,6 +1315,12 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                 state.activity.note("the turn failed; see the notice", false, Instant::now());
                 state.set_error(e);
             }
+            for (arm, args) in live.gate.take_held() {
+                match arm.as_str() {
+                    "model" => live.move_to(&args, None, &mut state),
+                    other => state.set_error(format!("a tool asked for /{other}; only a model switch is applied after a turn")),
+                }
+            }
             if live.hooks.any(arnes_blue::HookEvent::AfterTurn) {
                 for r in live.hooks.after_turn(&conversation_text(&state.conversation)) {
                     match r {
@@ -1513,6 +1562,13 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                         }
                     }
                     Effect::ToggleTranscript => state.show_transcript = !state.show_transcript,
+                    Effect::Secret { label, value } => match arnes_config::store_login_key(&label, &value) {
+                        Ok(path) => {
+                            state.toast(arnes_tui::ToastLevel::Info, format!("{label} key stored at {}", path.display()));
+                            live.move_to(&format!("provider:{label}"), None, &mut state);
+                        }
+                        Err(e) => state.set_error(format!("/login {label}: {e}")),
+                    },
                     Effect::Scrollback => {
                         state.viewport = (cols, rows);
                         if !state.enter_scrollback() {
@@ -1627,26 +1683,21 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                                     if pick.is_empty() {
                                         state.input.open_model_picker(model_choices(&live.base, &live.cfg, catalog.as_ref()));
                                     } else {
-                                        // The conversation moves with the switch: same
-                                        // messages, same prompt, the next turn on the new route.
-                                        match switch_model(&live.base, &live.cfg, pick, catalog.as_ref()) {
-                                            Ok(next) => match live.switch_route(&next, &mut state) {
-                                                Ok(refused) => {
-                                                    state.conversation.system = system_prompt(&next, &live.skills).0;
-                                                    state.input.hint = Some(format!("now talking to {} on {}", next.model(), next.provedor));
-                                                    if !refused.is_empty() {
-                                                        state.set_error(format!("route skipped: {}", refused.join("; ")));
-                                                    }
-                                                    live.cfg = next;
-                                                    live.route_source = "manual";
-                                                    probe_local(&live.cfg);
-                                                }
-                                                Err(e) => state.set_error(format!("/model: {e}")),
-                                            },
-                                            Err(e) => state.set_error(format!("/model: {e}")),
-                                        }
+                                        live.move_to(pick, catalog.as_ref(), &mut state);
                                     }
                                 }
+                                "login" if args.trim().is_empty() => {
+                                    let choices = arnes_config::Provider::all()
+                                        .into_iter()
+                                        .filter(|p| p.requires_key() && !p.endpoint().is_empty())
+                                        .map(|p| (p.name().to_owned(), format!("{:<12} {}", p.name(), p.endpoint())))
+                                        .collect();
+                                    state.input.open_choice_picker("login", choices);
+                                }
+                                "login" => match arnes_config::Provider::parse(args.trim()) {
+                                    Ok(p) => state.input.open_secret(p.name(), &format!("paste the {} API key; Enter stores it, Esc cancels", p.name())),
+                                    Err(e) => state.set_error(format!("/login: {e}")),
+                                },
                                 other => state.set_error(format!("unknown command /{other}")),
                             }
                         }
@@ -1791,7 +1842,9 @@ fn session_tools(cfg: &ArnesConfig, pool: &McpPool, skills: &arnes_tools::skills
 fn blue_tools_checked(cfg: &ArnesConfig) -> (arnes_blue::Tools, Vec<String>) {
     let reserved: Vec<String> = arnes_tools::Builtins::tools_except(&cfg.modules_off).into_iter().map(|t| t.name).collect();
     let reserved: Vec<&str> = reserved.iter().map(String::as_str).collect();
-    cfg.blue_tools(&reserved)
+    let (declared, refused) = cfg.blue_tools(&reserved);
+    let (hosted, _) = arnes_blue::bidamas::Registry::load(&arnes_blue::bidamas::BidamaPath::from_env(), &hosted_names(cfg));
+    (declared.with_hosted(hosted.tools(&cfg.modules_off), &reserved), refused)
 }
 
 /// The blue tools that resolve (refusals are reported once, by
@@ -2262,6 +2315,17 @@ fn model_choices(base: &ArnesConfig, live: &ArnesConfig, catalog: Option<&arnes_
         let live_mark = if r.provedor == live.provedor && r.endpoint == live.endpoint { "●" } else { " " };
         out.push((format!("route:{i}"), format!("{live_mark} route  {name:<14} {model}")));
     }
+    let has_route: Vec<String> = std::iter::once(base.provedor.clone()).chain(base.fallbacks.iter().map(|r| r.provedor.clone())).collect();
+    for p in arnes_config::Provider::all().into_iter().filter(|p| !p.endpoint().is_empty() && !has_route.iter().any(|r| r == p.name())) {
+        let candidate = base.on_provider(p.name());
+        let live_mark = if candidate.provedor == live.provedor && live.endpoint.is_none() { "●" } else { " " };
+        let state = match candidate.primary() {
+            Ok(_) => String::new(),
+            Err(_) => format!("no key · /login {}", p.name()),
+        };
+        let model = if p.default_model().is_empty() { "-" } else { p.default_model() };
+        out.push((format!("provider:{}", p.name()), format!("{live_mark} provider {:<11} {model:<14} {state}", p.name())));
+    }
     if let Some(c) = catalog {
         for m in &c.models {
             let live_mark = if base.provedor == live.provedor && m.id == live.model() { "●" } else { " " };
@@ -2291,6 +2355,12 @@ fn switch_model(base: &ArnesConfig, live: &ArnesConfig, pick: &str, catalog: Opt
     let labelled = std::iter::once(base.primary_route()).chain(base.fallbacks.iter().cloned()).position(|r| r.label.as_deref() == Some(pick) || r.provedor == pick);
     if let Some(i) = labelled {
         return route(i);
+    }
+    let named = pick.strip_prefix("provider:").unwrap_or(pick);
+    if arnes_config::Provider::parse(named).is_ok() {
+        let next = base.on_provider(named);
+        next.primary()?;
+        return Ok(next);
     }
     let id = pick.strip_prefix("model:").unwrap_or(pick);
     if let Some(c) = catalog {
@@ -2458,12 +2528,38 @@ mod tests {
     }
 
     #[test]
+    fn the_route_facts_name_who_serves_and_where_else_to_go() {
+        let cfg = ArnesConfig { provedor: "deepseek".into(), ..ArnesConfig::default() };
+        let facts = route_facts(&cfg);
+        assert!(facts.contains("model deepseek-flash") && facts.contains("route deepseek") && facts.contains("switch_model"), "{facts}");
+        assert!(facts.contains("glm") && facts.contains("local"), "{facts}");
+        let skills = Arc::new(arnes_tools::skills::Skills::default());
+        assert!(system_prompt(&cfg, &skills).0.unwrap_or_default().contains("switch_model"));
+        let off = ArnesConfig { context: arnes_config::ContextSection { route_facts: Some(false), ..Default::default() }, ..cfg };
+        assert!(!system_prompt(&off, &skills).0.unwrap_or_default().contains("switch_model"), "configured off");
+    }
+
+    #[test]
+    fn every_declared_provider_is_a_model_pick_and_a_switch_by_name() {
+        let base = ArnesConfig { provedor: "deepseek".into(), ..ArnesConfig::default() };
+        let rows = model_choices(&base, &base, None);
+        let ids: Vec<&str> = rows.iter().map(|(id, _)| id.as_str()).collect();
+        assert!(ids.contains(&"provider:glm") && ids.contains(&"provider:anthropic") && ids.contains(&"provider:local"), "{ids:?}");
+        assert!(!ids.contains(&"provider:deepseek"), "a routed provider is listed once, as its route");
+        assert!(!ids.contains(&"provider:messages"), "a provider without an endpoint needs a declared route");
+        let next = switch_model(&base, &base, "local", None).unwrap();
+        assert_eq!((next.provedor.as_str(), next.model().as_str()), ("local", "local"));
+        let via_id = switch_model(&base, &base, "provider:local", None).unwrap();
+        assert_eq!(via_id.provedor, "local");
+    }
+
+    #[test]
     fn the_picker_lists_hosted_commands_with_user_ones_replacing_them() {
         let cfg = ArnesConfig { modules_off: vec!["exit".into()], ..ArnesConfig::default() };
         let user = [decl("help")];
         let rows = picker_commands(&cfg, &reg(), &user);
         let names: Vec<_> = rows.iter().map(|(n, _)| n.as_str()).collect();
-        assert_eq!(names, ["clear", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim", "help"]);
+        assert_eq!(names, ["clear", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim", "help"]);
         assert_eq!(rows[0].1, "start a new conversation");
         assert_eq!(picker_commands(&ArnesConfig::default(), &arnes_blue::bidamas::Registry::default(), &[]), vec![]);
     }
@@ -2616,6 +2712,7 @@ mod tests {
                 discover: Some(false),
                 prompt: Some("Be terse.".into()),
                 max_kib: Some(1),
+                route_facts: Some(false),
             },
             access: arnes_config::AccessSection { read_roots: vec![ctx.path().display().to_string()], key_files: vec![] },
             skills: arnes_config::SkillsSection { dirs: vec![dir.path().display().to_string()], ..Default::default() },
@@ -2630,8 +2727,10 @@ mod tests {
         assert!(at("You are arnes.") < at("never pangea") && at("never pangea") < at("Be terse.") && at("Be terse.") < at("- bidama: blue packages"));
         assert_eq!(notes.len(), 2, "the big file and the one outside the roots are named: {notes:?}");
         assert!(notes.iter().any(|n| n.contains("over 1 KiB")) && notes.iter().any(|n| n.contains("/etc/hosts")));
-        let bare =
-            system_prompt(&ArnesConfig { context: arnes_config::ContextSection { discover: Some(false), ..Default::default() }, ..ArnesConfig::default() }, &arnes_tools::skills::Skills::default());
+        let bare = system_prompt(
+            &ArnesConfig { context: arnes_config::ContextSection { discover: Some(false), route_facts: Some(false), ..Default::default() }, ..ArnesConfig::default() },
+            &arnes_tools::skills::Skills::default(),
+        );
         assert_eq!(bare, (None, vec![]), "nothing configured, nothing added");
         let off = ArnesConfig { skills: arnes_config::SkillsSection { enabled: Some(false), ..cfg.skills.clone() }, ..cfg };
         assert!(session_skills(&off, &arnes_blue::bidamas::Registry::default()).0.is_empty());

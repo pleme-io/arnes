@@ -190,6 +190,7 @@ let
       discover = leaf types.bool "Read CLAUDE.md and AGENTS.md in the working directory. null → on.";
       prompt = leaf types.str "A fragment appended after the files.";
       maxKib = leaf (between 1 4096) "Largest context file read, KiB. null → 64.";
+      routeFacts = leaf types.bool "Tell the model which route serves it and which others exist. null → on.";
     };
     access = {
       readRoots = leaf (types.listOf types.str) "Directories arnes_read_file and @path may read under; empty = anywhere.";

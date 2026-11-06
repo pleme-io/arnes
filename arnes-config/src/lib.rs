@@ -645,6 +645,10 @@ nested_or_flat! {
 /// route's override or its provider's). Absent is `Ok(None)` only for a
 /// provider that takes no key.
 fn read_key(provider: &Provider, file: Option<&PathBuf>, var: Option<&str>) -> Result<Option<cofre_secret::Secret>, String> {
+    read_key_in(provider, file, var, arnes_store::Layout::from_env().as_ref())
+}
+
+fn read_key_in(provider: &Provider, file: Option<&PathBuf>, var: Option<&str>, store: Option<&arnes_store::Layout>) -> Result<Option<cofre_secret::Secret>, String> {
     if let Some(path) = file {
         let raw = std::fs::read_to_string(path).map_err(|e| format!("reading api-key-file {}: {e}", path.display()))?;
         return cofre_secret::Secret::new(raw.trim()).map(Some).map_err(|_| format!("api-key-file {} is empty", path.display()));
@@ -652,10 +656,35 @@ fn read_key(provider: &Provider, file: Option<&PathBuf>, var: Option<&str>) -> R
     let var = var.unwrap_or_else(|| provider.key_env());
     match cofre_secret::Secret::from_env(var) {
         Ok(k) => Ok(Some(k)),
-        Err(_) if !provider.requires_key() => Ok(None),
         Err(cofre_secret::SecretError::Empty) => Err(format!("{var} is set but empty")),
-        Err(_) => Err(format!("{var} is unset and no :api-key-file is configured")),
+        Err(_) => match store.and_then(|l| login_key(l, provider)) {
+            Some(k) => Ok(Some(k)),
+            None if !provider.requires_key() => Ok(None),
+            None => Err(format!("{var} is unset, no :api-key-file is configured and no key was stored (/login {})", provider.name())),
+        },
     }
+}
+
+/// The key `/login` stored for `provider`, when there is one.
+fn login_key(store: &arnes_store::Layout, provider: &Provider) -> Option<cofre_secret::Secret> {
+    let path = store.login_key(provider.name());
+    let raw = std::fs::read_to_string(path).ok()?;
+    cofre_secret::Secret::new(raw.trim()).ok()
+}
+
+/// Store `key` as `provider`'s login key, readable only by the user.
+///
+/// # Errors
+/// An unknown provider, an empty key, or a write that fails.
+pub fn store_login_key(provider: &str, key: &str) -> Result<PathBuf, String> {
+    let provider = Provider::parse(provider)?;
+    let key = key.trim();
+    if key.is_empty() {
+        return Err("the key is empty".into());
+    }
+    let path = arnes_store::Layout::from_env().ok_or("no state directory ($XDG_STATE_HOME or $HOME)")?.login_key(provider.name());
+    arnes_store::write_private(&path, key.as_bytes()).map_err(|e| format!("storing the key at {}: {e}", path.display()))?;
+    Ok(path)
 }
 
 impl RouteDecl {
@@ -1062,6 +1091,23 @@ impl ArnesConfig {
     pub fn primary(&self) -> Result<Route, String> {
         self.key_file_allowed(self.api_key_file.as_ref())?;
         self.primary_route().resolve()
+    }
+
+    /// This config moved to `provider` with that provider's own declared
+    /// endpoint, model and key: the route-specific fields are cleared, every
+    /// other knob is kept.
+    #[must_use]
+    pub fn on_provider(&self, provider: &str) -> Self {
+        let mut next = self.clone();
+        provider.clone_into(&mut next.provedor);
+        next.modelo = String::new();
+        next.endpoint = None;
+        next.api_key_file = None;
+        next.key_env = None;
+        next.system_note = None;
+        next.route.label = None;
+        next.route.facts = RouteFacts::default();
+        next
     }
 
     /// `/model`: fallback `i` becomes the provider and the old provider
@@ -1642,6 +1688,39 @@ impl ArnesConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_login_key_serves_a_provider_when_no_file_or_env_names_one() {
+        let d = tempfile::tempdir().unwrap();
+        let store = arnes_store::Layout::under(d.path());
+        let p = Provider::parse("glm").unwrap();
+        let var = Some("ARNES_TEST_NEVER_SET_KEY");
+        let none = read_key_in(&p, None, var, Some(&store)).unwrap_err();
+        assert!(none.contains("/login glm"), "{none}");
+        arnes_store::write_private(&store.login_key("glm"), b"  zk-login\n").unwrap();
+        let k = read_key_in(&p, None, var, Some(&store)).unwrap().unwrap();
+        assert_eq!(k.expose(), "zk-login");
+        let file = d.path().join("named");
+        std::fs::write(&file, "zk-file").unwrap();
+        assert_eq!(read_key_in(&p, Some(&file), var, Some(&store)).unwrap().unwrap().expose(), "zk-file", "a named file wins");
+        let local = Provider::parse("local").unwrap();
+        assert!(read_key_in(&local, None, var, Some(&store)).unwrap().is_none(), "an optional key stays optional");
+    }
+
+    #[test]
+    fn on_provider_takes_the_providers_own_facts_and_keeps_the_rest() {
+        let base = ArnesConfig {
+            provedor: "deepseek".into(),
+            modelo: "deepseek-pro".into(),
+            endpoint: Some("https://x".into()),
+            api_key_file: Some("/k".into()),
+            max_tokens: Some(77),
+            ..ArnesConfig::default()
+        };
+        let next = base.on_provider("glm");
+        assert_eq!((next.provedor.as_str(), next.modelo.as_str(), next.endpoint.as_deref(), next.api_key_file.as_ref()), ("glm", "", None, None));
+        assert_eq!(next.max_tokens, Some(77));
+    }
     use tatara_lisp::domain::TataraDomain;
 
     #[test]

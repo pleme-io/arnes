@@ -69,6 +69,12 @@ impl Layout {
         self.state.join("mcp")
     }
 
+    /// The key `/login <provider>` stored for a provider (mode 0600).
+    #[must_use]
+    pub fn login_key(&self, provider: &str) -> PathBuf {
+        self.state.join("keys").join(provider)
+    }
+
     /// Every submitted prompt, one JSON line each (`history`).
     #[must_use]
     pub fn prompt_history(&self) -> PathBuf {

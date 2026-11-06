@@ -81,7 +81,7 @@ pub enum Effect {
     Insert(String),
     /// Run one of the kernel's own command arms with `args`: `clear`
     /// (`arnes_clear()`), `exit` (`arnes_exit()`), `resume`
-    /// (`arnes_resume(q)`), `model` (`arnes_pick("model")`,
+    /// (`arnes_resume(q)`), `login` (`arnes_pick("login")`, `arnes_login(p)`), `model` (`arnes_pick("model")`,
     /// `arnes_route_switch(name)`), `mcp` and `vigy` (`arnes_open(view, args)`).
     /// Each host call validates its own domain, so the arm and its arguments
     /// are always ones the kernel serves.
@@ -102,7 +102,7 @@ pub enum Effect {
 }
 
 /// The pickers `arnes_pick(kind)` opens.
-pub const PICKERS: &[&str] = &["model", "profile"];
+pub const PICKERS: &[&str] = &["login", "model", "profile"];
 
 /// The kernel views `arnes_open(view, args)` opens.
 pub const VIEWS: &[&str] = &["mcp", "vigy"];
@@ -338,6 +338,12 @@ impl Host {
     fn route_switch(&mut self, name: String) -> Result<(), Refusal> {
         let name = named(&name, "names a model or route")?;
         self.effects.push(arm("model", &name));
+        Ok(())
+    }
+
+    fn login(&mut self, provider: String) -> Result<(), Refusal> {
+        let provider = named(&provider, "names a provider")?;
+        self.effects.push(arm("login", &provider));
         Ok(())
     }
 
@@ -602,7 +608,7 @@ pub mod bidamas {
 
     /// Kernel commands that are the Rust twin of a hosted bidama command:
     /// served only with `:kernel-fallback`, and replaceable by a user command.
-    pub const KERNEL_TWINS: &[&str] = &["clear", "exit", "help", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"];
+    pub const KERNEL_TWINS: &[&str] = &["clear", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"];
 
     /// The bidamas arnes hosts when the config names no others.
     pub const DEFAULT_HOSTED: &[&str] = &["meirei", "joutai", "kenban", "sanshou", "kenkou", "teikyou"];
@@ -626,11 +632,23 @@ pub mod bidamas {
         Hook,
         /// A provider fact: `provider <name> <fact> <value>`, data only.
         Provider,
+        /// A tool the model may call: `tool <name> <function> <description>`.
+        /// Its input is one string, `arg`; it is never read-only, so the
+        /// permission gate asks before it runs.
+        Tool,
     }
 
     impl Kind {
-        const ALL: [(&'static str, Self); 7] =
-            [("command", Self::Command), ("segment", Self::Segment), ("bind", Self::Bind), ("vigy", Self::Vigy), ("color", Self::Color), ("hook", Self::Hook), ("provider", Self::Provider)];
+        const ALL: [(&'static str, Self); 8] = [
+            ("command", Self::Command),
+            ("segment", Self::Segment),
+            ("bind", Self::Bind),
+            ("vigy", Self::Vigy),
+            ("color", Self::Color),
+            ("hook", Self::Hook),
+            ("provider", Self::Provider),
+            ("tool", Self::Tool),
+        ];
     }
 
     /// One export: `/name` or segment `name`, served by `package#function`.
@@ -747,6 +765,22 @@ pub mod bidamas {
         #[must_use]
         pub fn providers(&self) -> Vec<(String, String, String)> {
             self.exports.iter().filter(|e| e.kind == Kind::Provider).map(|e| (e.name.clone(), e.function.clone(), e.description.trim().to_owned())).collect()
+        }
+
+        /// The hosted tools, skipping packages named in `off`.
+        #[must_use]
+        pub fn tools(&self, off: &[String]) -> Vec<super::ToolSpec> {
+            self.exports
+                .iter()
+                .filter(|e| e.kind == Kind::Tool && !off.contains(&e.package))
+                .map(|e| super::ToolSpec {
+                    name: e.name.clone(),
+                    description: e.description.trim().to_owned(),
+                    schema: Some(serde_json::json!({"type": "object", "properties": {"arg": {"type": "string"}}, "required": ["arg"]})),
+                    read_only: false,
+                    script: super::Script::new(format!("{SCHEME}{}", e.package), e.function.clone()),
+                })
+                .collect()
         }
 
         /// The hosted key bindings, `(chord, action id)`, in hosting order,
@@ -940,6 +974,19 @@ impl Tools {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.specs.is_empty()
+    }
+
+    /// These tools, then each hosted tool whose name is neither one of
+    /// them nor `reserved`.
+    #[must_use]
+    pub fn with_hosted(self, hosted: Vec<ToolSpec>, reserved: &[&str]) -> Self {
+        let mut specs = (*self.specs).clone();
+        for h in hosted {
+            if !reserved.contains(&h.name.as_str()) && !specs.iter().any(|s| s.name == h.name) {
+                specs.push(h);
+            }
+        }
+        Self { specs: Arc::new(specs) }
     }
 
     /// The tool definitions sent to the model, in declaration order.
@@ -1311,7 +1358,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
     fn the_default_bidamas_export_the_ported_features() {
         let reg = hosted();
         let names: Vec<_> = reg.commands().into_iter().map(|(n, _)| n).collect();
-        assert_eq!(names, ["clear", "exit", "help", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"]);
+        assert_eq!(names, ["clear", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"]);
         assert_eq!(reg.commands()[0].1, "start a new conversation");
         assert!(reg.get(bidamas::Kind::Segment, "tools").is_some());
         assert!(!reg.owns_command("tools"));
@@ -1557,6 +1604,7 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
             ("arnes_notices", 0),
             ("arnes_open", 2),
             ("arnes_panel", 2),
+            ("arnes_login", 1),
             ("arnes_pick", 1),
             ("arnes_profile", 1),
             ("arnes_read_file", 2),
@@ -1572,6 +1620,21 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
         ];
         registered.sort_unstable();
         assert_eq!(surface, registered);
+    }
+
+    #[test]
+    fn teikyou_ships_the_switch_model_tool_asked_and_with_one_string_arg() {
+        let (reg, refused) = bidamas::Registry::load(&embedded(), &["teikyou".to_owned()]);
+        assert!(refused.is_empty(), "{refused:?}");
+        let tools = reg.tools(&[]);
+        let t = tools.iter().find(|t| t.name == "switch_model").expect("hosted");
+        assert!(!t.read_only, "the gate asks before a switch");
+        assert_eq!(t.schema.as_ref().unwrap()["required"], serde_json::json!(["arg"]));
+        assert!(reg.tools(&["teikyou".to_owned()]).is_empty(), "configured off, it is gone");
+        let mine = ToolSpec { name: "switch_model".into(), description: "mine".into(), schema: None, read_only: true, script: Script::new("x.b", "f") };
+        let merged = Tools::new(vec![mine]).with_hosted(tools.clone(), &[]);
+        assert_eq!(merged.tools().iter().filter(|t| t.name == "switch_model").map(|t| t.description.as_str()).collect::<Vec<_>>(), ["mine"], "a declared tool wins its name");
+        assert!(Tools::new(vec![]).with_hosted(tools, &["switch_model"]).is_empty(), "a reserved name is never shadowed");
     }
 
     #[test]

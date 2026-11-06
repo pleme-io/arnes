@@ -62,7 +62,9 @@ notices, extension state and session file untouched. What each part does:
 | `persistence.sessions` | recording stops, or starts a session file for the running conversation |
 | retention (`sessions-keep`, `sessions-max-age-days`, `log-max-mb`) | a sweep runs now |
 | `vigies` | redeclared on the running vigy runtime: new or edited ones register, removed ones are disabled (kept with history), the rest keep ticking; the first one declared starts the runtime |
-| `/model` | the same route switch as a reload: conversation kept, next turn to the new route |
+| `/model` | the same route switch as a reload: conversation kept, next turn to the new route; it lists the routes, then every declared provider without a route (with "no key · /login <name>" when its key is missing), and a provider is picked by its name |
+| `/login <provider>` | a masked entry (never shown, never in history; Esc cancels) stores the key at `$XDG_STATE_HOME/arnes/keys/<provider>` (mode 0600), then moves to that provider; with no name it lists the providers that take a key. A route reads its key from `:api-key-file`, else its `key-env`, else this stored key |
+| `switch_model` tool | the model moves the session to a route or provider the route facts name, when the user asks; the gate asks first, and the switch applies when the turn ends |
 | `/profile`, `--profile` | the file re-applied with the profile's overlay through this same reload path: MCP servers diffed, gate, tools, route, bidamas, skills and context swapped for the next turn, conversation kept |
 | `skills.*`, `context.*` | rediscovered; the system prompt and the `Skill` tool change from the next turn |
 | `history.*` | `search`, `ranking`, `pin_recent` from the next `Ctrl-R`; a new `scope` or `keep` re-reads the history file (everything recorded is on disk); `record` off stops writing, on starts, and neither drops what the session already walks |
@@ -77,7 +79,7 @@ notices, extension state and session file untouched. What each part does:
 
 | key | type, bound | default | notes |
 |---|---|---|---|
-| `provedor` | a provider the `teikyou` bidama declares: `local` \| `deepseek` \| `anthropic` \| `glm` \| `messages`, plus any a hosted bidama adds with `provider` rows | `local` | the free local route is the default; a paid provider is used once configured with its key; `glm` is Z.ai's coding plan at `https://api.z.ai/api/anthropic`, the endpoint `claude-glm` runs on; `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
+| `provedor` | a provider the `teikyou` bidama declares: `local` \| `deepseek` \| `anthropic` \| `glm` \| `messages`, plus any a hosted bidama adds with `provider` rows | `local` | the free local route is the default; a paid provider is used once configured with its key; `glm` is Z.ai at `https://api.z.ai/api/anthropic` with a pay-as-you-go key (`ZAI_API_KEY` or `/login glm`; the Coding Plan key is for Z.ai's listed tools only); `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
 | `modelo` | string | the provider's (`local`, `deepseek-flash`, `claude-opus-5-5`, `glm-5.3`) | checked against the provider's live catalogue at startup |
 | `endpoint` | URL | the provider's (`http://127.0.0.1:8080` for local) | |
 | `api_key_file` | path | none | wins over the env var. `glm` takes a pay-as-you-go Z.ai key: the Coding Plan key is for Z.ai's listed tools only, and nix never gives it to arnes (`lib/claude-providers.nix`, `arnesProvider = null`) |
@@ -272,9 +274,10 @@ line.
 | `context.discover` | bool | on: `CLAUDE.md` and `AGENTS.md` in the working directory |
 | `context.prompt` | string | none: appended after the files |
 | `context.max_kib` | 1..=4096 | 64 |
+| `context.route_facts` | bool | on: one paragraph naming the route, provider and model that serve the session, every other route and declared provider (with whether its key is present), and the `switch_model` tool; it follows each switch |
 
 The system prompt is `prompt_sistema`, then the context files, then
-`context.prompt`, then the skills listing.
+`context.prompt`, then the route facts, then the skills listing.
 
 ## `access`
 

@@ -314,13 +314,24 @@ fn draw_status(buf: &mut Buffer, area: Region, state: &TuiState, palette: &Palet
 fn draw_prompt(buf: &mut Buffer, area: Region, state: &TuiState, palette: &Palette, now: Instant) {
     let r = area.rect();
     let search = state.input.search.as_ref();
-    let title = if search.is_some() { " reverse-i-search " } else { " > " };
+    let title = if search.is_some() {
+        " reverse-i-search ".to_owned()
+    } else if let Some(label) = &state.input.masked {
+        format!(" {label} key (hidden) ")
+    } else {
+        " > ".to_owned()
+    };
     // A sent prompt pulses the border.
     let pulse = state.blips.flash(Blip::Submit, now, state.motion);
     let edge = Palette { accent: blend(palette.accent, palette.success, pulse), ..*palette };
-    draw::bordered_block_with(buf, r, title, true, &edge);
+    draw::bordered_block_with(buf, r, &title, true, &edge);
     let (ix, iy, iw, ih) = inner_cells(draw::block_inner(r));
     if iw == 0 || ih == 0 {
+        return;
+    }
+    if state.input.masked.is_some() {
+        let n = state.input.editor.text().chars().count();
+        buf.set_stringn(ix, iy, &format!("{} ({n})", "\u{2022}".repeat(n.min(usize::from(iw).saturating_sub(8)))), iw, Style::default().fg(palette.muted));
         return;
     }
     if let Some(s) = search {

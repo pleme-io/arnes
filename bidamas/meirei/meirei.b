@@ -24,6 +24,12 @@ def exports()
       ["command", "clear", "clear", "start a new conversation"],
       ["command", "exit", "exit", "quit arnes"],
       ["command", "help", "help", "show keyboard shortcuts"],
+      [
+        "command",
+        "login",
+        "login",
+        "store a provider's API key and move to it"
+      ],
       ["command", "mcp", "mcp", "browse MCP servers, tools and schemas"],
       ["command", "mode", "mode", "permission mode: default | plan | bypass"],
       ["command", "model", "model", "switch model or provider route"],
@@ -50,7 +56,7 @@ test "the exports are command rows, each naming its own meirei function"
   rs = rows(exports)
   names = column(rs, 1)
   assert names ==
-    %w[clear exit help mcp mode model notices profile resume vigy vim]
+    %w[clear exit help login mcp mode model notices profile resume vigy vim]
   assert every((k) -> k == "command", column(rs, 0))
   assert column(rs, 2) == names
   assert names != []
@@ -109,6 +115,16 @@ def resume(args)
     arnes_resume(args)
     nil
   end
+end
+
+# waive B0001: arnes host call
+def login(args)
+  if args == ""
+    arnes_pick("login")
+  else
+    arnes_login(args)
+  end
+  nil
 end
 
 # waive B0001: arnes host call
