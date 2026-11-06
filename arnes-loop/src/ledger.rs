@@ -31,17 +31,11 @@ pub struct Price {
     pub output: f64,
 }
 
-/// Each provider's weekday peak hours (UTC, half-open). Outside them, and
-/// all weekend, is off-peak at half price. `DeepSeek`: 01–04 and 06–10
-/// (api-docs.deepseek.com, 2026-09-26). GLM: 06–10, 14:00–18:00 Singapore
-/// (z.ai coding plan, 2026-11-05). A provider with no row has no peak.
-const PEAK_HOURS: &[(&str, &[(u32, u32)])] = &[("deepseek", &[(1, 4), (6, 10)]), ("glm", &[(6, 10)])];
-
-/// Whether `ts` falls in `provider`'s peak window.
+/// Whether `ts` falls in a provider's weekday peak `hours` (UTC, half-open,
+/// the provider's `peak` fact). Outside them, and all weekend, is off-peak.
 #[must_use]
-pub fn peak(provider: &str, ts: chrono::DateTime<Utc>) -> bool {
+pub fn peak(hours: &[(u32, u32)], ts: chrono::DateTime<Utc>) -> bool {
     let weekend = matches!(ts.weekday(), Weekday::Sat | Weekday::Sun);
-    let hours = PEAK_HOURS.iter().find(|(p, _)| *p == provider).map_or(&[][..], |(_, h)| h);
     !weekend && hours.iter().any(|&(from, to)| (from..to).contains(&ts.hour()))
 }
 
@@ -101,6 +95,7 @@ pub struct Ledger {
     session: String,
     totals: Mutex<Totals>,
     prices: Mutex<HashMap<String, Price>>,
+    peaks: Mutex<HashMap<String, Vec<(u32, u32)>>>,
 }
 
 impl Ledger {
@@ -108,12 +103,19 @@ impl Ledger {
     #[must_use]
     pub fn new(path: Option<PathBuf>) -> Self {
         let session = format!("{}-{}", Utc::now().format("%Y%m%dT%H%M%S"), std::process::id());
-        Self { path, session, totals: Mutex::new(Totals { all_priced: true, ..Totals::default() }), prices: Mutex::new(HashMap::new()) }
+        Self { path, session, totals: Mutex::new(Totals { all_priced: true, ..Totals::default() }), prices: Mutex::new(HashMap::new()), peaks: Mutex::new(HashMap::new()) }
     }
 
     pub fn set_prices(&self, prices: HashMap<String, Price>) {
         if let Ok(mut p) = self.prices.lock() {
             *p = prices;
+        }
+    }
+
+    /// Each provider's peak hours, by provider name.
+    pub fn set_peaks(&self, peaks: HashMap<String, Vec<(u32, u32)>>) {
+        if let Ok(mut p) = self.peaks.lock() {
+            *p = peaks;
         }
     }
 
@@ -137,7 +139,7 @@ impl Ledger {
     /// the caller's tracing, never fatal — the conversation matters more.
     pub fn record(&self, served: &arnes_anthropic::Served, model: &str, usage: &Usage) {
         let now = Utc::now();
-        let peak = peak(&served.provider, now);
+        let peak = self.peaks.lock().ok().is_some_and(|p| p.get(&served.provider).is_some_and(|h| peak(h, now)));
         let declared = self.prices.lock().ok().and_then(|p| p.get(&served.label).copied());
         let price = declared.or_else(|| price(&served.provider, model, peak));
         let cost_usd = price.map_or(0.0, |p| cost(usage, p));
@@ -193,15 +195,15 @@ mod tests {
     #[test]
     fn peak_windows() {
         // 2026-09-28 is a Monday.
-        assert!(peak("deepseek", at(2026, 9, 28, 2)));
-        assert!(peak("deepseek", at(2026, 9, 28, 7)));
-        assert!(!peak("deepseek", at(2026, 9, 28, 5)), "04–06 is off-peak");
-        assert!(!peak("deepseek", at(2026, 9, 28, 12)));
-        assert!(!peak("deepseek", at(2026, 9, 27, 2)), "Sunday is off-peak all day");
-        assert!(peak("glm", at(2026, 9, 28, 7)));
-        assert!(!peak("glm", at(2026, 9, 28, 2)), "GLM's peak is only 06–10");
-        assert!(!peak("glm", at(2026, 9, 27, 7)), "Sunday is off-peak all day");
-        assert!(!peak("anthropic", at(2026, 9, 28, 7)), "a provider without a row has no peak");
+        assert!(peak(&[(1, 4), (6, 10)], at(2026, 9, 28, 2)));
+        assert!(peak(&[(1, 4), (6, 10)], at(2026, 9, 28, 7)));
+        assert!(!peak(&[(1, 4), (6, 10)], at(2026, 9, 28, 5)), "04–06 is off-peak");
+        assert!(!peak(&[(1, 4), (6, 10)], at(2026, 9, 28, 12)));
+        assert!(!peak(&[(1, 4), (6, 10)], at(2026, 9, 27, 2)), "Sunday is off-peak all day");
+        assert!(peak(&[(6, 10)], at(2026, 9, 28, 7)));
+        assert!(!peak(&[(6, 10)], at(2026, 9, 28, 2)), "GLM's peak is only 06–10");
+        assert!(!peak(&[(6, 10)], at(2026, 9, 27, 7)), "Sunday is off-peak all day");
+        assert!(!peak(&[], at(2026, 9, 28, 7)), "a provider without peak hours has no peak");
     }
 
     #[test]

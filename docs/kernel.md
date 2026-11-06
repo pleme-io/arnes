@@ -36,8 +36,8 @@ capability-scopes bidamas, and reloads them.
 | provider transport: wire, streaming, retries, fallback execution, each route's auth header (`x-api-key` or bearer), every failure judged by `handan` into one typed verdict (`unauthorized`, `throttled`, `server-error`, `unreachable`, `timed-out`), kept per route as its health beside the route that served the turn and its latency | `arnes-anthropic` | network and secrets |
 | MCP client and pool | `arnes-mcp-client` | processes and sockets |
 | tool loop, permission gate, guardrail | `arnes-loop` | a bidama may veto, never grant |
-| ledger, sessions, layout, retention; each call recorded against the route that served it, at that route's declared price, in its provider's own peak hours (one table: DeepSeek, GLM) | `arnes-loop/ledger.rs`, `arnes-store` | durable formats, atomic writes |
-| config loading, hot reload, routes as data (the `messages` provider, route facts); each provider's facts, `glm` (Z.ai, the endpoint `claude-glm` runs on) among them | `arnes-config`, shikumi | the declaration layer |
+| ledger, sessions, layout, retention; each call recorded against the route that served it, at that route's declared price, in its provider's own peak hours (each provider's `peak` fact) | `arnes-loop/ledger.rs`, `arnes-store` | durable formats, atomic writes |
+| config loading, hot reload, routes as data (the `messages` provider, route facts); the typed reading of provider facts (`providers.rs`: each `provider <name> <fact> <value>` row a hosted bidama declares, `teikyou` shipping the five; a bad fact refused alone, an empty table refused whole; the table swapped in place when the hosted bidamas reload) | `arnes-config`, shikumi, `arnes-blue` (`Registry::providers`) | the declaration layer: a fact reaches the wire, so it is parsed once at the border, and a new provider is rows, not Rust |
 | vigy runtime embedding | `arnes-vigy`, vigy-runtime | the scheduler is vigy's |
 
 ## 2. The bidamas
@@ -56,6 +56,7 @@ found while writing one moves into blue's public `bidamas/` instead (§3).
 | activity | | the activity line's text | H8 |
 | notices | | notice policy: keep, fold, drop, lifetime | H8 |
 | `kenban` | 鍵盤 | the default key bindings, one `bind <action> <chord>` export each | **landed** |
+| `teikyou` | 提供 | the model providers, one `provider <name> <fact> <value>` export per fact (endpoint, model, key, auth, echo, catalogue, thinking budget, peak hours); a new provider is rows, not a build | **landed** |
 | routes | | route ranking, start-on-free policy, `/model` | H6 |
 | tools | | declaring the built-in tools, blue tools | H10 |
 | `sanshou` | 参照 | `@path` mentions attached to a prompt, a before-submit hook | **landed** |
@@ -110,6 +111,7 @@ skill). Kept current each rung.
 | `joutai` | `yushutsu`, `ronri` | exports as rows; tests over them |
 | `kenban` | `yushutsu`, `ronri`, `moji` (`includes`) | the bindings as rows; tests over them |
 | `kenkou` | `yushutsu`, `deeta` (`get_str`, `get_int`) | total JSON reads of each probe |
+| `teikyou` | `yushutsu`, `ronri` (`every`), `retsu` (`first`) | the provider table as rows; tests over them |
 | `sanshou` | `yushutsu`, `moji` (`words`, `starts_with`, `ends_with`, `take_chars`, `drop_chars`, `includes`), `retsu` (`contains`, `push`) | tokenising and de-duplicating mentions |
 
 blue's whole standard distribution is on every hosted bidama's path at run

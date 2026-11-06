@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:034f404ff8938c4d24b925e6fe751dc678bd1ea68b4c26af5b850f366de3db93",
+  "manifest": {
+    "schema": 1,
+    "name": "teikyou",
+    "version": "0.1.0",
+    "needs": {
+      "retsu": "^0.1.0",
+      "ronri": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}

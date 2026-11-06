@@ -260,6 +260,11 @@ fn build_client(cfg: &ArnesConfig) -> std::result::Result<(AnthropicClient, Vec<
     Ok((version(client), refused))
 }
 
+fn price_ledger(ledger: &Ledger, cfg: &ArnesConfig) {
+    ledger.set_prices(route_prices(cfg));
+    ledger.set_peaks(arnes_config::Provider::all().into_iter().map(|p| (p.name().to_owned(), p.peak_hours().to_vec())).collect());
+}
+
 fn route_prices(cfg: &ArnesConfig) -> std::collections::HashMap<String, arnes_loop::ledger::Price> {
     let (routes, _) = cfg.fallback_routes();
     cfg.primary()
@@ -285,6 +290,9 @@ async fn one_shot(client: &AnthropicClient, cfg: &ArnesConfig, text: &str) -> Re
     for r in refused {
         tracing::warn!("{r}; not hosted");
     }
+    for r in arnes_config::providers::install(&hosted.providers()) {
+        tracing::warn!("{r}");
+    }
     let (skills, notes) = session_skills(cfg, &hosted);
     let (system, more) = system_prompt(cfg, &skills);
     for n in notes.into_iter().chain(more) {
@@ -296,7 +304,7 @@ async fn one_shot(client: &AnthropicClient, cfg: &ArnesConfig, text: &str) -> Re
     let policy = cfg.permission_policy().map_err(anyhow::Error::msg)?;
     let gate = with_builtins(cfg, GatedDispatcher::new(pool, Arc::new(NoHuman), policy), &skills);
     let ledger = Ledger::new(cfg.ledger_path());
-    ledger.set_prices(route_prices(cfg));
+    price_ledger(&ledger, cfg);
     let rounds = cfg.knobs().0.max_rounds;
     let _ = run_turn_recorded(client, &mut conv, &tools, &gate, rounds, Some(&ledger)).await?;
     // Print only the last assistant-text response.
@@ -790,7 +798,7 @@ impl Live {
 
     fn route(&self) -> (String, bool) {
         let endpoint = self.cfg.resolved_endpoint().unwrap_or_default();
-        (endpoint, self.cfg.provider() == Ok(arnes_config::Provider::Local))
+        (endpoint, self.cfg.provider().is_ok_and(|p| !p.requires_key()))
     }
 
     /// Rebuild the gate over the current pool, keeping the session's
@@ -1003,7 +1011,7 @@ fn sweep(cfg: &ArnesConfig) {
 /// down: a TCP connect with a short deadline, off the UI thread. The turn
 /// itself would still say so; this says it while they are still typing.
 fn probe_local(cfg: &ArnesConfig) {
-    if cfg.provider() != Ok(arnes_config::Provider::Local) {
+    if !cfg.provider().is_ok_and(|p| !p.requires_key()) {
         return;
     }
     let Ok(endpoint) = cfg.resolved_endpoint() else { return };
@@ -1155,7 +1163,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
     let (mcp_tx, mut mcp_rx) = mpsc::unbounded_channel::<McpSwap>();
     let mut approval_reply: Option<tokio::sync::oneshot::Sender<Verdict>> = None;
     let ledger = Arc::new(Ledger::new(cfg.ledger_path()));
-    ledger.set_prices(route_prices(cfg));
+    price_ledger(&ledger, cfg);
     let mut ticking = start_vigies(cfg, &live.hosted, facts.clone()).await;
     let mut vigy_runs = ticking.as_ref().map(arnes_vigy::Ticking::subscribe);
     let mut recorder = record::Recorder::open(cfg.persistence().sessions, ledger.session(), &state.conversation);
@@ -1311,7 +1319,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                     live.file = loaded.config.clone();
                     let loaded = live.profiled(loaded, &mut state);
                     let fx = live.reload(loaded, &mut state, depth, &mcp_tx);
-                    ledger.set_prices(route_prices(&live.cfg));
+                    price_ledger(&ledger, &live.cfg);
                     segment_memo = SegmentMemo::default();
                     if fx.pacer {
                         pacer = egaku_term::anim::FramePacer::new(live.knobs.frame_rate);
@@ -2098,6 +2106,9 @@ fn host_bidamas(cfg: &ArnesConfig, state: &mut TuiState) -> arnes_blue::bidamas:
     for r in refused {
         tracing::warn!("{r}; not hosted");
         state.toast(arnes_tui::ToastLevel::Warn, format!("{r}; not hosted"));
+    }
+    for r in arnes_config::providers::install(&reg.providers()) {
+        state.toast(arnes_tui::ToastLevel::Warn, r);
     }
     reg
 }

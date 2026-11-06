@@ -77,7 +77,7 @@ notices, extension state and session file untouched. What each part does:
 
 | key | type, bound | default | notes |
 |---|---|---|---|
-| `provedor` | `local` \| `deepseek` \| `anthropic` \| `glm` \| `messages` | `local` | the free local route is the default; a paid provider is used once configured with its key; `glm` is Z.ai's coding plan at `https://api.z.ai/api/anthropic`, the endpoint `claude-glm` runs on; `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
+| `provedor` | a provider the `teikyou` bidama declares: `local` \| `deepseek` \| `anthropic` \| `glm` \| `messages`, plus any a hosted bidama adds with `provider` rows | `local` | the free local route is the default; a paid provider is used once configured with its key; `glm` is Z.ai's coding plan at `https://api.z.ai/api/anthropic`, the endpoint `claude-glm` runs on; `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
 | `modelo` | string | the provider's (`local`, `deepseek-flash`, `claude-opus-5-5`, `glm-5.3`) | checked against the provider's live catalogue at startup |
 | `endpoint` | URL | the provider's (`http://127.0.0.1:8080` for local) | |
 | `api_key_file` | path | none | wins over the env var. `glm` takes a pay-as-you-go Z.ai key: the Coding Plan key is for Z.ai's listed tools only, and nix never gives it to arnes (`lib/claude-providers.nix`, `arnesProvider = null`) |

@@ -593,6 +593,7 @@ pub mod bidamas {
         ("sanshou", &[("bidamas/sanshou/sanshou.b", include_str!("../../bidamas/sanshou/sanshou.b"))]),
         ("yushutsu", &[("bidamas/yushutsu/yushutsu.b", include_str!("../../bidamas/yushutsu/yushutsu.b"))]),
         ("wariate", &[("bidamas/wariate/wariate.b", include_str!("../../bidamas/wariate/wariate.b"))]),
+        ("teikyou", &[("bidamas/teikyou/teikyou.b", include_str!("../../bidamas/teikyou/teikyou.b"))]),
     ];
 
     /// A script path naming a hosted bidama instead of a file:
@@ -604,7 +605,7 @@ pub mod bidamas {
     pub const KERNEL_TWINS: &[&str] = &["clear", "exit", "help", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"];
 
     /// The bidamas arnes hosts when the config names no others.
-    pub const DEFAULT_HOSTED: &[&str] = &["meirei", "joutai", "kenban", "sanshou", "kenkou"];
+    pub const DEFAULT_HOSTED: &[&str] = &["meirei", "joutai", "kenban", "sanshou", "kenkou", "teikyou"];
 
     /// What a hosted bidama exports.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -623,10 +624,13 @@ pub mod bidamas {
         /// A hook: `hook <event> <function> <description>`; the kernel runs
         /// hosted `before-submit` hooks after the declared ones.
         Hook,
+        /// A provider fact: `provider <name> <fact> <value>`, data only.
+        Provider,
     }
 
     impl Kind {
-        const ALL: [(&'static str, Self); 6] = [("command", Self::Command), ("segment", Self::Segment), ("bind", Self::Bind), ("vigy", Self::Vigy), ("color", Self::Color), ("hook", Self::Hook)];
+        const ALL: [(&'static str, Self); 7] =
+            [("command", Self::Command), ("segment", Self::Segment), ("bind", Self::Bind), ("vigy", Self::Vigy), ("color", Self::Color), ("hook", Self::Hook), ("provider", Self::Provider)];
     }
 
     /// One export: `/name` or segment `name`, served by `package#function`.
@@ -649,7 +653,7 @@ pub mod bidamas {
             let mut f = line.trim().splitn(4, ' ');
             let (kind, name, function, description) = (f.next(), f.next(), f.next(), f.next().unwrap_or(""));
             let Some(kind) = kind.and_then(|k| Kind::ALL.iter().find(|(n, _)| *n == k).map(|(_, k)| *k)) else {
-                refused.push(format!("{package} export {}: the kind is one of command, segment, bind, vigy, color, hook", i + 1));
+                refused.push(format!("{package} export {}: the kind is one of command, segment, bind, vigy, color, hook, provider", i + 1));
                 continue;
             };
             if kind == Kind::Bind {
@@ -693,7 +697,12 @@ pub mod bidamas {
                         let (exports, bad) = parse_exports(package, out.text());
                         refused.extend(bad);
                         for e in exports {
-                            if reg.get(e.kind, &e.name).is_some() {
+                            let taken = if e.kind == Kind::Provider {
+                                reg.exports.iter().any(|h| h.kind == e.kind && h.name == e.name && h.function == e.function)
+                            } else {
+                                reg.get(e.kind, &e.name).is_some()
+                            };
+                            if taken {
                                 refused.push(format!("{package} export {}: already hosted", e.name));
                             } else {
                                 reg.exports.push(e);
@@ -732,6 +741,12 @@ pub mod bidamas {
         #[must_use]
         pub fn colors(&self, off: &[String]) -> Vec<(String, String)> {
             self.exports.iter().filter(|e| e.kind == Kind::Color && !off.contains(&e.package)).map(|e| (e.name.clone(), e.function.clone())).collect()
+        }
+
+        /// The hosted provider facts, `(provider, fact, value)`, in hosting order.
+        #[must_use]
+        pub fn providers(&self) -> Vec<(String, String, String)> {
+            self.exports.iter().filter(|e| e.kind == Kind::Provider).map(|e| (e.name.clone(), e.function.clone(), e.description.trim().to_owned())).collect()
         }
 
         /// The hosted key bindings, `(chord, action id)`, in hosting order,

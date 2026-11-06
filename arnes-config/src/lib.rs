@@ -23,6 +23,7 @@
 
 extern crate self as arnes_config;
 
+pub mod providers;
 pub mod render;
 pub mod salvage;
 pub mod sections;
@@ -34,6 +35,7 @@ pub use sections::{
 
 use arnes_anthropic::catalog::Auth as CatalogAuth;
 use arnes_core::{EchoRule, Effort, ThinkingMode};
+pub use providers::Provider;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -421,7 +423,7 @@ impl EndpointDecl {
     pub fn resolve(&self) -> Result<arnes_anthropic::reach::Endpoint, String> {
         let key = match (&self.key_file, &self.key_env) {
             (None, None) => None,
-            (file, var) => read_key(Provider::Messages, file.as_ref(), var.as_deref())?,
+            (file, var) => read_key(&Provider::parse("messages")?, file.as_ref(), var.as_deref())?,
         };
         let loopback = ["http://127.0.0.1", "http://localhost", "http://[::1]"].iter().any(|h| self.url.starts_with(h));
         if key.is_some() && self.url.starts_with("http://") && !loopback {
@@ -436,7 +438,7 @@ impl EndpointDecl {
             name: self.name.clone(),
             url: self.url.clone(),
             key: key.map(std::sync::Arc::new),
-            auth: auth_of(Provider::Messages, self.auth.as_deref())?,
+            auth: auth_of(CatalogAuth::Bearer, self.auth.as_deref())?,
             timeout: std::time::Duration::from_millis(u64::from(timeout)),
             max_bytes: usize::try_from(max_kib).unwrap_or(256) * 1024,
         })
@@ -642,12 +644,12 @@ nested_or_flat! {
 /// Read a key: the file if one is named, else the env var (`var` is the
 /// route's override or its provider's). Absent is `Ok(None)` only for a
 /// provider that takes no key.
-fn read_key(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Result<Option<cofre_secret::Secret>, String> {
+fn read_key(provider: &Provider, file: Option<&PathBuf>, var: Option<&str>) -> Result<Option<cofre_secret::Secret>, String> {
     if let Some(path) = file {
         let raw = std::fs::read_to_string(path).map_err(|e| format!("reading api-key-file {}: {e}", path.display()))?;
         return cofre_secret::Secret::new(raw.trim()).map(Some).map_err(|_| format!("api-key-file {} is empty", path.display()));
     }
-    let var = var.unwrap_or(provider.key_env());
+    let var = var.unwrap_or_else(|| provider.key_env());
     match cofre_secret::Secret::from_env(var) {
         Ok(k) => Ok(Some(k)),
         Err(_) if !provider.requires_key() => Ok(None),
@@ -661,34 +663,34 @@ impl RouteDecl {
     /// An unknown provider, or a key the provider requires that cannot be read.
     pub fn resolve(&self) -> Result<Route, String> {
         let provider = Provider::parse(&self.provedor)?;
-        let endpoint = match (&self.endpoint, provider) {
-            (Some(e), _) => e.clone(),
-            (None, Provider::Messages) => return Err("a messages route names its :endpoint".into()),
-            (None, p) => p.endpoint().into(),
+        let endpoint = match &self.endpoint {
+            Some(e) => e.clone(),
+            None if provider.endpoint().is_empty() => return Err(format!("a {} route names its :endpoint", provider.name())),
+            None => provider.endpoint().into(),
         };
-        let model = match (self.modelo.is_empty(), provider) {
-            (false, _) => self.modelo.clone(),
-            (true, Provider::Messages) => return Err("a messages route names its :modelo".into()),
-            (true, p) => p.default_model().into(),
+        let model = match self.modelo.is_empty() {
+            false => self.modelo.clone(),
+            true if provider.default_model().is_empty() => return Err(format!("a {} route names its :modelo", provider.name())),
+            true => provider.default_model().into(),
         };
         Ok(Route {
-            provider,
             model,
             endpoint,
-            key: read_key(provider, self.api_key_file.as_ref(), self.key_env.as_deref())?,
+            key: read_key(&provider, self.api_key_file.as_ref(), self.key_env.as_deref())?,
             timeout: self.timeout_secs.map(std::time::Duration::from_secs),
             system_note: self.system_note.clone(),
             tools: self.tools.unwrap_or(true),
             label: self.label.clone().unwrap_or_else(|| provider.name().to_owned()),
-            auth: auth_of(provider, self.facts.auth.as_deref())?,
+            auth: auth_of(provider.default_auth(), self.facts.auth.as_deref())?,
             facts: self.facts.clone(),
+            provider,
         })
     }
 }
 
-fn auth_of(provider: Provider, named: Option<&str>) -> Result<CatalogAuth, String> {
+fn auth_of(default: CatalogAuth, named: Option<&str>) -> Result<CatalogAuth, String> {
     match named {
-        None => Ok(provider.default_auth()),
+        None => Ok(default),
         Some("x-api-key") => Ok(CatalogAuth::XApiKey),
         Some("bearer") => Ok(CatalogAuth::Bearer),
         Some(other) => Err(format!("unknown auth {other:?}; expected \"x-api-key\" or \"bearer\"")),
@@ -777,140 +779,7 @@ impl Default for ArnesConfig {
 /// The default provider: the free local route (operator, 2026-09-28). A paid
 /// provider is used once it is configured with a key.
 fn default_provedor() -> String {
-    Provider::Local.name().into()
-}
-
-/// The typed view of `:provedor`. All speak the Anthropic Messages wire
-/// format — `DeepSeek` through its Anthropic-compatible endpoint, a local
-/// llama.cpp server through its `/v1/messages` route — so a provider is a
-/// handful of facts: endpoint, default model, key env var, echo rule.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Provider {
-    DeepSeek,
-    Anthropic,
-    /// Z.ai's GLM coding plan on its Anthropic-compatible endpoint, the one
-    /// `claude-glm` runs on (blackmatter-claude `providers.glm`).
-    Glm,
-    /// A llama.cpp `llama-server` (0.5.0+): the fleet's own model. It takes
-    /// no key, serves whatever it was started with under an alias, and
-    /// normally lives at an address only its `:endpoint` can name.
-    Local,
-    Messages,
-}
-
-impl Provider {
-    pub const ALL: [Self; 5] = [Self::DeepSeek, Self::Anthropic, Self::Glm, Self::Local, Self::Messages];
-
-    #[must_use]
-    pub const fn name(self) -> &'static str {
-        match self {
-            Self::DeepSeek => "deepseek",
-            Self::Anthropic => "anthropic",
-            Self::Glm => "glm",
-            Self::Local => "local",
-            Self::Messages => "messages",
-        }
-    }
-
-    #[must_use]
-    pub const fn default_auth(self) -> CatalogAuth {
-        match self {
-            Self::Messages => CatalogAuth::Bearer,
-            Self::DeepSeek | Self::Anthropic | Self::Glm | Self::Local => CatalogAuth::XApiKey,
-        }
-    }
-
-    #[must_use]
-    pub const fn endpoint(self) -> &'static str {
-        match self {
-            Self::DeepSeek => "https://api.deepseek.com/anthropic",
-            Self::Anthropic => "https://api.anthropic.com",
-            Self::Glm => "https://api.z.ai/api/anthropic",
-            // llama-server's own default bind.
-            Self::Local => "http://127.0.0.1:8080",
-            Self::Messages => "",
-        }
-    }
-
-    #[must_use]
-    pub const fn default_model(self) -> &'static str {
-        match self {
-            // Live /models (2026-09-26): deepseek-chat/-reasoner are retired
-            // and an unknown name is silently routed to flash with thinking on.
-            Self::DeepSeek => "deepseek-flash",
-            Self::Anthropic => "claude-opus-5-5",
-            // claude-glm's opus tier, `glm-5.3[1m]` without Claude Code's 1M suffix.
-            Self::Glm => "glm-5.3",
-            // The fleet's alias (nix: pleme.llm.server.alias).
-            Self::Local => "local",
-            Self::Messages => "",
-        }
-    }
-
-    /// When prior thinking blocks go back in history. `DeepSeek`: with
-    /// tools, omitting them is a 400; without, they are ignored. Local:
-    /// llama-server signs nothing (`"signature": ""`), so echoing buys
-    /// nothing and risks a template that rejects the block.
-    #[must_use]
-    pub const fn echo_rule(self) -> EchoRule {
-        match self {
-            Self::DeepSeek => EchoRule::WhenTools,
-            // claude-glm echoes every block, as Claude Code does, and GLM keeps
-            // its reasoning across turns from them.
-            Self::Anthropic | Self::Glm => EchoRule::Always,
-            Self::Local | Self::Messages => EchoRule::Never,
-        }
-    }
-
-    /// Whether `thinking.budget_tokens` has any effect.
-    #[must_use]
-    pub const fn honours_thinking_budget(self) -> bool {
-        match self {
-            Self::DeepSeek | Self::Glm | Self::Local | Self::Messages => false,
-            Self::Anthropic => true,
-        }
-    }
-
-    /// The provider's model catalogue endpoint and its auth header. `None`
-    /// where there is no catalogue to check against: a local server serves
-    /// exactly the model it was started with.
-    #[must_use]
-    pub const fn models_url(self) -> Option<(&'static str, CatalogAuth)> {
-        match self {
-            Self::DeepSeek => Some(("https://api.deepseek.com/models", CatalogAuth::Bearer)),
-            Self::Anthropic => Some(("https://api.anthropic.com/v1/models", CatalogAuth::XApiKey)),
-            Self::Glm => Some(("https://api.z.ai/api/anthropic/v1/models", CatalogAuth::XApiKey)),
-            Self::Local | Self::Messages => None,
-        }
-    }
-
-    #[must_use]
-    pub const fn key_env(self) -> &'static str {
-        match self {
-            Self::DeepSeek => "DEEPSEEK_API_KEY",
-            Self::Anthropic => "ANTHROPIC_API_KEY",
-            Self::Glm => "ZAI_API_KEY",
-            Self::Local => "LOCAL_LLM_API_KEY",
-            Self::Messages => "MESSAGES_API_KEY",
-        }
-    }
-
-    /// Whether a request without a key is refused. A local server started
-    /// without `--api-key` takes none; one started with it reads the key
-    /// from `:api-key-file` / `:key-env` like any other.
-    #[must_use]
-    pub const fn requires_key(self) -> bool {
-        !matches!(self, Self::Local)
-    }
-
-    /// # Errors
-    /// Names every accepted provider when `s` is not one of them.
-    pub fn parse(s: &str) -> Result<Self, String> {
-        Self::ALL.into_iter().find(|p| p.name() == s).ok_or_else(|| {
-            let legal: Vec<_> = Self::ALL.iter().map(|p| p.name()).collect();
-            format!("unknown provedor {s:?}; expected one of {legal:?}")
-        })
-    }
+    "local".into()
 }
 
 /// One MCP server to launch — `defmcp-server` in Lisp, same shape as
@@ -1008,7 +877,7 @@ impl ArnesConfig {
     /// Names the file or env var that was tried.
     pub fn api_key(&self) -> Result<Option<cofre_secret::Secret>, String> {
         self.key_file_allowed(self.api_key_file.as_ref())?;
-        read_key(self.provider()?, self.api_key_file.as_ref(), self.key_env.as_deref())
+        read_key(&self.provider()?, self.api_key_file.as_ref(), self.key_env.as_deref())
     }
 
     /// The fallbacks, resolved in order. A route that cannot be resolved is
@@ -1062,7 +931,7 @@ impl ArnesConfig {
             return None;
         }
         let mut next = self.clone();
-        next.provedor = Provider::Local.name().into();
+        next.provedor = "local".into();
         next.modelo.clear();
         next.endpoint.clone_from(&f.endpoint);
         next.api_key_file = None;
@@ -1073,7 +942,7 @@ impl ArnesConfig {
         let on_device = f.on_device.unwrap_or(cfg!(target_os = "macos"));
         if on_device && !next.fallbacks.iter().any(|r| r.label.as_deref() == Some("on-device")) {
             next.fallbacks.push(RouteDecl {
-                provedor: Provider::Local.name().into(),
+                provedor: "local".into(),
                 modelo: f.on_device_model.clone().unwrap_or_else(|| "apple-on-device".into()),
                 endpoint: Some(f.on_device_endpoint.clone().unwrap_or_else(|| "http://127.0.0.1:8434".into())),
                 api_key_file: None,
@@ -1778,7 +1647,7 @@ mod tests {
     #[test]
     fn default_is_the_free_local_route() {
         let c = ArnesConfig::default();
-        assert_eq!(c.provider(), Ok(Provider::Local));
+        assert_eq!(c.provider(), Provider::parse("local"));
         assert_eq!(c.model(), "local");
         assert_eq!(c.resolved_endpoint().unwrap(), "http://127.0.0.1:8080");
         assert!(c.api_key().unwrap().is_none(), "the default needs no key");
@@ -1794,20 +1663,20 @@ mod tests {
     #[test]
     fn glm_is_the_route_claude_glm_runs_on() {
         let g = ArnesConfig { provedor: "glm".into(), ..ArnesConfig::default() };
-        assert_eq!(g.provider(), Ok(Provider::Glm));
+        assert_eq!(g.provider(), Provider::parse("glm"));
         assert_eq!(g.model(), "glm-5.3");
         assert_eq!(g.resolved_endpoint().unwrap(), "https://api.z.ai/api/anthropic");
-        assert_eq!(Provider::Glm.models_url(), Some(("https://api.z.ai/api/anthropic/v1/models", CatalogAuth::XApiKey)));
-        assert_eq!(Provider::Glm.echo_rule(), EchoRule::Always);
-        assert_eq!(Provider::Glm.key_env(), "ZAI_API_KEY");
-        assert!(Provider::Glm.requires_key() && !Provider::Glm.honours_thinking_budget());
+        assert_eq!(Provider::parse("glm").unwrap().models_url(), Some(("https://api.z.ai/api/anthropic/v1/models", CatalogAuth::XApiKey)));
+        assert_eq!(Provider::parse("glm").unwrap().echo_rule(), EchoRule::Always);
+        assert_eq!(Provider::parse("glm").unwrap().key_env(), "ZAI_API_KEY");
+        assert!(Provider::parse("glm").unwrap().requires_key() && !Provider::parse("glm").unwrap().honours_thinking_budget());
     }
 
     #[test]
     fn every_provider_round_trips_and_is_complete() {
-        for p in Provider::ALL {
-            assert_eq!(Provider::parse(p.name()), Ok(p));
-            if p == Provider::Messages {
+        for p in Provider::all() {
+            assert_eq!(Provider::parse(p.name()), Ok(p.clone()));
+            if p == Provider::parse("messages").unwrap() {
                 assert!(p.endpoint().is_empty() && p.default_model().is_empty() && p.models_url().is_none() && p.requires_key());
                 continue;
             }
@@ -1899,7 +1768,7 @@ mod tests {
         assert_eq!(c.fallbacks.len(), 3);
         let (routes, refused) = c.fallback_routes();
         assert_eq!(routes.len(), 1, "the local route survives its broken siblings");
-        assert_eq!(routes[0].provider, Provider::Local);
+        assert_eq!(routes[0].provider, Provider::parse("local").unwrap());
         assert_eq!(routes[0].endpoint, "http://192.0.2.10:8080");
         assert_eq!(routes[0].model, "local");
         assert!(routes[0].key.is_none());
@@ -1944,7 +1813,7 @@ mod tests {
             ..ArnesConfig::default()
         };
         let p = c.promote(0);
-        assert_eq!(p.provider(), Ok(Provider::Local));
+        assert_eq!(p.provider(), Provider::parse("local"));
         assert_eq!(p.resolved_endpoint().unwrap(), "http://h:8080");
         assert_eq!(p.model(), "local");
         assert_eq!(p.fallbacks.len(), 1);
@@ -1989,7 +1858,7 @@ mod tests {
             ..ArnesConfig::default()
         };
         let s = c.switch_to(1);
-        assert_eq!(s.provider(), Ok(Provider::Anthropic));
+        assert_eq!(s.provider(), Provider::parse("anthropic"));
         let order: Vec<&str> = s.fallbacks.iter().map(|f| f.provedor.as_str()).collect();
         assert_eq!(order, ["deepseek", "local"]);
     }
@@ -2442,7 +2311,7 @@ mod tests {
             ..ArnesConfig::default()
         };
         let f = c.free_route().unwrap();
-        assert_eq!((f.provider(), f.resolved_endpoint().unwrap().as_str()), (Ok(Provider::Local), "http://gpubox:8080"));
+        assert_eq!((f.provider(), f.resolved_endpoint().unwrap().as_str()), (Provider::parse("local"), "http://gpubox:8080"));
         assert_eq!(f.fallbacks.len(), 1, "the unresolvable route dropped, on-device added");
         assert_eq!((f.fallbacks[0].label.as_deref(), f.fallbacks[0].tools), (Some("on-device"), Some(false)));
         let off = ArnesConfig { free_route: FreeRouteSection { enabled: Some(false), ..FreeRouteSection::default() }, ..c };

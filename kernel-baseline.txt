@@ -9,18 +9,18 @@
 # the host functions blue calls: each one a capability a bidama may not grant itself; arnes_http is the one network call, choose-route hooks only
 host: arnes-blue 22
 
-# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts)
-rust: arnes 2715
+# the terminal, the main loop, effects applied after a call succeeds, each route's ledger price, when to ask choose-route and how its answer moves the turn (the kernel's state as facts), installing the hosted provider table
+rust: arnes 2725
 # provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches
 rust: arnes-anthropic 582
-# the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships
-rust: arnes-blue 752
-# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, each provider's facts (glm among them)
-rust: arnes-config 1737
+# the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships, the provider export kind
+rust: arnes-blue 764
+# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust
+rust: arnes-config 1845
 # conversation and usage types the kernel crates share
 rust: arnes-core 282
-# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours
-rust: arnes-loop 544
+# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours read from its declared facts
+rust: arnes-loop 548
 # MCP processes and sockets
 rust: arnes-mcp-client 811
 # durable formats and atomic writes
