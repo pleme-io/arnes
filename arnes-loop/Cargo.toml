@@ -21,6 +21,7 @@ thiserror        = { workspace = true }
 tokio            = { workspace = true }
 tracing          = { workspace = true }
 async-trait      = { workspace = true }
+futures          = { workspace = true }
 
 pleme-io-forge-core = { workspace = true }
 chrono = { workspace = true }

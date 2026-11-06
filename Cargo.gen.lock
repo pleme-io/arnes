@@ -1,13 +1,13 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "6b538eb5ba42e3ef52e345313e29d342992afbd610d35ad89efe2b522904f72d",
+  "cargo_lock_sha256": "326c16dd92b4a45a4471698ba2ba2c431e70ff7b909289cf76078e407108921b",
   "manifest_sha256": {
     "Cargo.toml": "ee8996a4f7ea512f5fe5fd52087a7e854e3cf9a68824a77a2508d79382fd2260",
     "arnes-anthropic/Cargo.toml": "d7c210ea90ef1e2d2000a88c9f3580125ff7fff62476835e3b41aa70ab2760e8",
     "arnes-blue/Cargo.toml": "b2ab691e899859e76aec8123ff125f8a7b1505156e67894bb2d29cd1a440c10a",
     "arnes-config/Cargo.toml": "45c6769c4e16f5fb85ae6026d856df6f5e70c967345e37d344ab9280caf5169e",
     "arnes-core/Cargo.toml": "3c0f4209412cea24522dc86856f376c29c27d815a33ec29a587574a5cc83953f",
-    "arnes-loop/Cargo.toml": "11818a9eb64e6d3bfc7ff16128260a772ec720c764658dee183c522e8b126f1c",
+    "arnes-loop/Cargo.toml": "735b93b3468ab235fc0ff41ee9feb33642fe50b0a250597336d3d99bf6fce98d",
     "arnes-mcp-client/Cargo.toml": "9539c583be7a24b521f87bac8d4b9a6bc5c01805e82851e8a135036ac2635c8d",
     "arnes-store/Cargo.toml": "b699840f80a413fb15a793d03ddbc4e3e04e447d86da51c257d36ff559dd07c6",
     "arnes-tools/Cargo.toml": "d522059ddc827ba80be0835c0a29df795188a4fd777124288c101fc676bcbebc",
@@ -1072,6 +1072,16 @@
             "features": [
               "serde"
             ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "futures",
+            "package_key": "futures-0.3.34",
+            "kind": "normal",
+            "features": [],
             "uses_default_features": true,
             "optional": false,
             "target": null,

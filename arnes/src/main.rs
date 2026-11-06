@@ -217,6 +217,10 @@ struct Observed {
 
 #[async_trait::async_trait]
 impl arnes_loop::ToolDispatcher for Observed {
+    fn concurrent(&self, name: &str, input: &serde_json::Value) -> bool {
+        self.inner.concurrent(name, input)
+    }
+
     async fn dispatch(&self, name: &str, input: &serde_json::Value) -> arnes_loop::Result<String> {
         use arnes_tui::activity::Event;
         let _ = self.tx.send(Event::ToolStart(name.to_owned()));

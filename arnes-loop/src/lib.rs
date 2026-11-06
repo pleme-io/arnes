@@ -52,6 +52,12 @@ pub type Result<T> = std::result::Result<T, LoopError>;
 #[async_trait]
 pub trait ToolDispatcher: Send + Sync {
     async fn dispatch(&self, name: &str, input: &serde_json::Value) -> Result<String>;
+
+    /// Whether this call may run beside others from the same reply: it
+    /// changes nothing and will not stop to ask. Unknown is no.
+    fn concurrent(&self, _name: &str, _input: &serde_json::Value) -> bool {
+        false
+    }
 }
 
 /// The live MCP pool dispatches `mcp__<server>__<tool>` calls.
@@ -222,9 +228,21 @@ pub async fn run_turn_with<D: ToolDispatcher>(
                     tracing::warn!(turn, "stop_reason=tool_use but no tool uses present");
                     break;
                 }
+                // Calls that change nothing and will not ask run together;
+                // a reply with any other call runs them one by one, in order.
+                let together = uses.len() > 1 && uses.iter().all(|(_, name, input)| dispatcher.concurrent(name, input));
+                let outcomes = if together {
+                    futures::future::join_all(uses.iter().map(|(_, name, input)| dispatcher.dispatch(name, input))).await
+                } else {
+                    let mut out = Vec::with_capacity(uses.len());
+                    for (_, name, input) in &uses {
+                        out.push(dispatcher.dispatch(name, input).await);
+                    }
+                    out
+                };
                 let mut result_blocks: Vec<ContentBlock> = Vec::with_capacity(uses.len());
-                for (id, name, input) in uses {
-                    match dispatcher.dispatch(&name, &input).await {
+                for ((id, name, _), outcome) in uses.into_iter().zip(outcomes) {
+                    match outcome {
                         Ok(text) => result_blocks.push(ContentBlock::ToolResult { tool_use_id: id, content: text, is_error: false }),
                         Err(e) => {
                             tracing::warn!(tool = %name, error = %e, "tool dispatch failed");
@@ -350,6 +368,44 @@ mod tests {
         assert!(is_context_overflow(&api(400, "prompt is too long: context length 200000")));
         assert!(!is_context_overflow(&api(400, "invalid tool schema")));
         assert!(!is_context_overflow(&api(500, "context exceeded")), "a server error is not a length refusal");
+    }
+
+    struct Slow(bool);
+
+    #[async_trait]
+    impl ToolDispatcher for Slow {
+        async fn dispatch(&self, name: &str, _input: &serde_json::Value) -> Result<String> {
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            Ok(format!("done {name}"))
+        }
+        fn concurrent(&self, _name: &str, _input: &serde_json::Value) -> bool {
+            self.0
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn calls_that_change_nothing_run_together_and_answer_in_order() {
+        const TWO: &str = r#"{"id":"m1","type":"message","role":"assistant","model":"m","content":[{"type":"tool_use","id":"a","name":"Read","input":{}},{"type":"tool_use","id":"b","name":"Grep","input":{}}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        const DONE: &str =
+            r#"{"id":"m2","type":"message","role":"assistant","model":"m","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        for (together, under) in [(true, true), (false, false)] {
+            let (url, _seen) = arnes_anthropic::testing::scripted_server(vec![("200 OK", TWO), ("200 OK", DONE)]);
+            let client = AnthropicClient::new(None).with_base_url(url);
+            let mut conv = Conversation::default();
+            conv.push(Message::user_text("look"));
+            let t = std::time::Instant::now();
+            run_turn(&client, &mut conv, &[], &Slow(together), 4).await.unwrap();
+            assert_eq!(t.elapsed() < std::time::Duration::from_millis(550), under, "together = {together}: {:?}", t.elapsed());
+            let ids: Vec<_> = conv.messages[2]
+                .content
+                .iter()
+                .map(|b| match b {
+                    ContentBlock::ToolResult { tool_use_id, content, .. } => format!("{tool_use_id}:{content}"),
+                    _ => String::new(),
+                })
+                .collect();
+            assert_eq!(ids, ["a:done Read", "b:done Grep"], "results keep the reply's order");
+        }
     }
 
     #[tokio::test]

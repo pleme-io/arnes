@@ -263,6 +263,32 @@ impl GatedDispatcher {
         self.builtins.as_ref().is_some_and(|b| b.jobs().detach())
     }
 
+    fn read_only_of(&self, tool: &str) -> Option<bool> {
+        if self.is_skill(tool) {
+            Some(true)
+        } else if self.is_builtin(tool) {
+            arnes_tools::Builtins::read_only(tool)
+        } else if self.blue.owns(tool) {
+            self.blue.read_only(tool)
+        } else {
+            self.pool.read_only(tool)
+        }
+    }
+
+    /// A call that may run beside others: read-only, allowed without a
+    /// question by the policy, not a deferred MCP call, and, for a built-in,
+    /// clear of every guardrail rule.
+    fn runs_beside(&self, name: &str, input: &serde_json::Value) -> bool {
+        if name == CALL_TOOL || name == SEARCH_TOOL || self.read_only_of(name) != Some(true) {
+            return false;
+        }
+        let allowed = match (self.policy.lock(), self.always.lock()) {
+            (Ok(p), Ok(a)) => p.decide(name, Some(true), &a) == Decision::Allow,
+            _ => false,
+        };
+        allowed && (!self.is_builtin(name) || matches!(self.guard.screen(name, input), Screen::Clear))
+    }
+
     /// The kernel arms blue tools asked for since the last take, in order.
     pub fn take_held(&self) -> Vec<(String, String)> {
         self.held.lock().map(|mut h| std::mem::take(&mut *h)).unwrap_or_default()
@@ -357,6 +383,10 @@ impl GatedDispatcher {
 
 #[async_trait]
 impl ToolDispatcher for GatedDispatcher {
+    fn concurrent(&self, name: &str, input: &serde_json::Value) -> bool {
+        self.runs_beside(name, input)
+    }
+
     async fn dispatch(&self, name: &str, input: &serde_json::Value) -> Result<String> {
         // The search meta-tool only reads the local catalogue.
         if name == SEARCH_TOOL {
@@ -369,15 +399,7 @@ impl ToolDispatcher for GatedDispatcher {
         } else {
             (name.to_owned(), input.clone())
         };
-        let read_only = if self.is_skill(&tool) {
-            Some(true)
-        } else if self.is_builtin(&tool) {
-            arnes_tools::Builtins::read_only(&tool)
-        } else if self.blue.owns(&tool) {
-            self.blue.read_only(&tool)
-        } else {
-            self.pool.read_only(&tool)
-        };
+        let read_only = self.read_only_of(&tool);
         let mut decision = {
             let policy = self.policy.lock().map_err(|_| LoopError::Dispatch("policy lock".into()))?;
             let always = self.always.lock().map_err(|_| LoopError::Dispatch("policy lock".into()))?;
@@ -613,6 +635,17 @@ mod tests {
         assert!(approver.1.lock().unwrap().is_empty(), "never asked: it only reads");
         let none = GatedDispatcher::new(pool(), approver, plan).with_skills(Arc::new(arnes_tools::skills::Skills::default()));
         assert!(none.dispatch("Skill", &serde_json::json!({"name": "x"})).await.is_err());
+    }
+
+    #[test]
+    fn only_unasked_read_only_calls_run_beside_others() {
+        let g = GatedDispatcher::new(pool(), Arc::new(Scripted(Verdict::Allow, Mutex::new(vec![]))), Policy::default()).with_builtins(arnes_tools::Builtins::new("."));
+        let none = serde_json::json!({});
+        assert!(g.concurrent("Read", &serde_json::json!({"file_path": "a"})));
+        assert!(g.concurrent("Grep", &serde_json::json!({"pattern": "x"})));
+        assert!(!g.concurrent("Bash", &serde_json::json!({"command": "ls"})), "it may change something");
+        assert!(!g.concurrent("Write", &none));
+        assert!(!g.concurrent("mcp__nowhere__tool", &none), "unknown is no");
     }
 
     #[tokio::test(flavor = "multi_thread")]

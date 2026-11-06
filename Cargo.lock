@@ -230,6 +230,7 @@ dependencies = [
  "arnes-tools",
  "async-trait",
  "chrono",
+ "futures",
  "guardrail",
  "pleme-io-forge-core",
  "pretty_assertions",
