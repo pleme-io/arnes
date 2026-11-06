@@ -376,6 +376,9 @@ fn a_streaming_reply_draws_as_it_arrives_and_settles_away() {
     st.activity_event(arnes_tui::activity::Event::Text("half of a ".into()), t0);
     st.activity_event(arnes_tui::activity::Event::Text("reply".into()), t0);
     assert!(screen(&frame(&st, 70, 14, t0)).contains("half of a reply"));
+    st.set_busy_at(true, t0);
+    let busy = screen(&frame(&st, 70, 14, t0 + MS(900)));
+    assert!(busy.contains("writing") && !busy.contains("thinking"), "{busy}");
     st.activity_event(arnes_tui::activity::Event::Restart, t0);
     assert!(!screen(&frame(&st, 70, 14, t0)).contains("half of a"), "a restart voids what streamed");
     st.activity_event(arnes_tui::activity::Event::Text("again".into()), t0);

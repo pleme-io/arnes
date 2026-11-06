@@ -254,7 +254,8 @@ fn draw_activity(buf: &mut Buffer, area: Region, state: &TuiState, palette: &Pal
         } else {
             x = put(buf, x, frame, palette.accent);
             x = put(buf, x, " ", palette.foreground);
-            let word = "thinking";
+            // The reply is arriving: say so, not "thinking".
+            let word = if state.streaming.is_empty() { "thinking" } else { "writing" };
             let n = word.chars().count();
             for (i, ch) in word.chars().enumerate() {
                 let glow = if state.motion { anim::shimmer(i, n, elapsed, state.spec.shimmer) } else { 0.0 };
