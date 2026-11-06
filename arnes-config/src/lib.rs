@@ -6,7 +6,7 @@
 //!
 //! ```lisp
 //! (defarnes
-//!   :provedor           "local"             ; local (default, free) | deepseek | anthropic
+//!   :provedor           "local"             ; local (default, free) | deepseek | anthropic | glm | messages
 //!   :modelo             "deepseek-flash"    ; omit → the provider's default
 //!   :effort             "low"               ; low | high | max (implies thinking on)
 //!   :api-key-file       "~/.config/deepseek/api-key"
@@ -643,7 +643,7 @@ nested_or_flat! {
 /// route's override or its provider's). Absent is `Ok(None)` only for a
 /// provider that takes no key.
 fn read_key(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Result<Option<cofre_secret::Secret>, String> {
-    if let Some(path) = file {
+    if let Some(path) = key_file_of(provider, file, var).as_ref() {
         let raw = std::fs::read_to_string(path).map_err(|e| format!("reading api-key-file {}: {e}", path.display()))?;
         return cofre_secret::Secret::new(raw.trim()).map(Some).map_err(|_| format!("api-key-file {} is empty", path.display()));
     }
@@ -656,7 +656,24 @@ fn read_key(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Re
     }
 }
 
+/// The file a key is read from: the named one, else, while the env var is
+/// unset, the fleet's file for the provider when it exists.
+fn key_file_of(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Option<PathBuf> {
+    let fleet = provider.fleet_key_file().map(|f| arnes_blue::expand_home(std::path::Path::new(f)));
+    pick_key_file(file, var.unwrap_or(provider.key_env()), fleet)
+}
+
+fn pick_key_file(file: Option<&PathBuf>, var: &str, fleet: Option<PathBuf>) -> Option<PathBuf> {
+    file.cloned().or_else(|| fleet.filter(|f| std::env::var_os(var).is_none() && f.is_file()))
+}
+
 impl RouteDecl {
+    /// The file this route's key is read from, if any.
+    #[must_use]
+    pub fn key_file(&self) -> Option<PathBuf> {
+        Provider::parse(&self.provedor).ok().and_then(|p| key_file_of(p, self.api_key_file.as_ref(), self.key_env.as_deref()))
+    }
+
     /// # Errors
     /// An unknown provider, or a key the provider requires that cannot be read.
     pub fn resolve(&self) -> Result<Route, String> {
@@ -788,6 +805,9 @@ fn default_provedor() -> String {
 pub enum Provider {
     DeepSeek,
     Anthropic,
+    /// Z.ai's GLM coding plan on its Anthropic-compatible endpoint, the one
+    /// `claude-glm` runs on (blackmatter-claude `providers.glm`).
+    Glm,
     /// A llama.cpp `llama-server` (0.5.0+): the fleet's own model. It takes
     /// no key, serves whatever it was started with under an alias, and
     /// normally lives at an address only its `:endpoint` can name.
@@ -796,13 +816,14 @@ pub enum Provider {
 }
 
 impl Provider {
-    pub const ALL: [Self; 4] = [Self::DeepSeek, Self::Anthropic, Self::Local, Self::Messages];
+    pub const ALL: [Self; 5] = [Self::DeepSeek, Self::Anthropic, Self::Glm, Self::Local, Self::Messages];
 
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
             Self::DeepSeek => "deepseek",
             Self::Anthropic => "anthropic",
+            Self::Glm => "glm",
             Self::Local => "local",
             Self::Messages => "messages",
         }
@@ -812,7 +833,7 @@ impl Provider {
     pub const fn default_auth(self) -> CatalogAuth {
         match self {
             Self::Messages => CatalogAuth::Bearer,
-            Self::DeepSeek | Self::Anthropic | Self::Local => CatalogAuth::XApiKey,
+            Self::DeepSeek | Self::Anthropic | Self::Glm | Self::Local => CatalogAuth::XApiKey,
         }
     }
 
@@ -821,6 +842,7 @@ impl Provider {
         match self {
             Self::DeepSeek => "https://api.deepseek.com/anthropic",
             Self::Anthropic => "https://api.anthropic.com",
+            Self::Glm => "https://api.z.ai/api/anthropic",
             // llama-server's own default bind.
             Self::Local => "http://127.0.0.1:8080",
             Self::Messages => "",
@@ -834,6 +856,8 @@ impl Provider {
             // and an unknown name is silently routed to flash with thinking on.
             Self::DeepSeek => "deepseek-flash",
             Self::Anthropic => "claude-opus-5-5",
+            // claude-glm's opus tier, `glm-5.3[1m]` without Claude Code's 1M suffix.
+            Self::Glm => "glm-5.3",
             // The fleet's alias (nix: pleme.llm.server.alias).
             Self::Local => "local",
             Self::Messages => "",
@@ -848,7 +872,9 @@ impl Provider {
     pub const fn echo_rule(self) -> EchoRule {
         match self {
             Self::DeepSeek => EchoRule::WhenTools,
-            Self::Anthropic => EchoRule::Always,
+            // claude-glm echoes every block, as Claude Code does, and GLM keeps
+            // its reasoning across turns from them.
+            Self::Anthropic | Self::Glm => EchoRule::Always,
             Self::Local | Self::Messages => EchoRule::Never,
         }
     }
@@ -857,7 +883,7 @@ impl Provider {
     #[must_use]
     pub const fn honours_thinking_budget(self) -> bool {
         match self {
-            Self::DeepSeek | Self::Local | Self::Messages => false,
+            Self::DeepSeek | Self::Glm | Self::Local | Self::Messages => false,
             Self::Anthropic => true,
         }
     }
@@ -870,6 +896,7 @@ impl Provider {
         match self {
             Self::DeepSeek => Some(("https://api.deepseek.com/models", CatalogAuth::Bearer)),
             Self::Anthropic => Some(("https://api.anthropic.com/v1/models", CatalogAuth::XApiKey)),
+            Self::Glm => Some(("https://api.z.ai/api/anthropic/v1/models", CatalogAuth::XApiKey)),
             Self::Local | Self::Messages => None,
         }
     }
@@ -879,8 +906,20 @@ impl Provider {
         match self {
             Self::DeepSeek => "DEEPSEEK_API_KEY",
             Self::Anthropic => "ANTHROPIC_API_KEY",
+            Self::Glm => "ZAI_API_KEY",
             Self::Local => "LOCAL_LLM_API_KEY",
             Self::Messages => "MESSAGES_API_KEY",
+        }
+    }
+
+    /// Where the fleet places this provider's key (nix `lib/claude-providers.nix`
+    /// `keyPath`, a sops secret), read when no `:api-key-file` is named and
+    /// the env var is unset.
+    #[must_use]
+    pub const fn fleet_key_file(self) -> Option<&'static str> {
+        match self {
+            Self::Glm => Some("~/.config/zai/api-key"),
+            Self::DeepSeek | Self::Anthropic | Self::Local | Self::Messages => None,
         }
     }
 
@@ -996,7 +1035,7 @@ impl ArnesConfig {
     /// # Errors
     /// Names the file or env var that was tried.
     pub fn api_key(&self) -> Result<Option<cofre_secret::Secret>, String> {
-        self.key_file_allowed(self.api_key_file.as_ref())?;
+        self.key_file_allowed(self.primary_route().key_file().as_ref())?;
         read_key(self.provider()?, self.api_key_file.as_ref(), self.key_env.as_deref())
     }
 
@@ -1008,7 +1047,7 @@ impl ArnesConfig {
         let mut routes = Vec::new();
         let mut refused = Vec::new();
         for (i, decl) in self.fallbacks.iter().enumerate() {
-            match self.key_file_allowed(decl.api_key_file.as_ref()).and_then(|()| decl.resolve()) {
+            match self.key_file_allowed(decl.key_file().as_ref()).and_then(|()| decl.resolve()) {
                 Ok(r) => routes.push(r),
                 Err(e) => refused.push(format!("fallback {} ({}): {e}", i + 1, decl.provedor)),
             }
@@ -1180,8 +1219,9 @@ impl ArnesConfig {
     /// # Errors
     /// As [`RouteDecl::resolve`], or a key file outside `access.key-files`.
     pub fn primary(&self) -> Result<Route, String> {
-        self.key_file_allowed(self.api_key_file.as_ref())?;
-        self.primary_route().resolve()
+        let route = self.primary_route();
+        self.key_file_allowed(route.key_file().as_ref())?;
+        route.resolve()
     }
 
     /// `/model`: fallback `i` becomes the provider and the old provider
@@ -1778,6 +1818,37 @@ mod tests {
 
     fn deepseek() -> ArnesConfig {
         ArnesConfig { provedor: "deepseek".into(), ..ArnesConfig::default() }
+    }
+
+    #[test]
+    fn glm_is_the_route_claude_glm_runs_on() {
+        let g = ArnesConfig { provedor: "glm".into(), ..ArnesConfig::default() };
+        assert_eq!(g.provider(), Ok(Provider::Glm));
+        assert_eq!(g.model(), "glm-5.3");
+        assert_eq!(g.resolved_endpoint().unwrap(), "https://api.z.ai/api/anthropic");
+        assert_eq!(Provider::Glm.models_url(), Some(("https://api.z.ai/api/anthropic/v1/models", CatalogAuth::XApiKey)));
+        assert_eq!(Provider::Glm.echo_rule(), EchoRule::Always);
+        assert_eq!(Provider::Glm.key_env(), "ZAI_API_KEY");
+        assert!(Provider::Glm.requires_key() && !Provider::Glm.honours_thinking_budget());
+    }
+
+    #[test]
+    fn the_fleet_key_file_is_read_only_when_nothing_names_a_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let fleet = dir.path().join("api-key");
+        std::fs::write(&fleet, "zai-fleet\n").unwrap();
+        let named = dir.path().join("named");
+        let unset = "ARNES_TEST_GLM_KEY_UNSET";
+        assert_eq!(pick_key_file(None, unset, Some(fleet.clone())), Some(fleet.clone()));
+        assert_eq!(pick_key_file(Some(&named), unset, Some(fleet.clone())), Some(named), "a named file wins");
+        assert_eq!(pick_key_file(None, "PATH", Some(fleet.clone())), None, "a set env var wins over the fleet file");
+        assert_eq!(pick_key_file(None, unset, Some(dir.path().join("absent"))), None, "an absent fleet file is not named");
+        assert_eq!(pick_key_file(None, unset, None), None, "only a provider with a fleet file reads one");
+        assert_eq!(Provider::Glm.fleet_key_file(), Some("~/.config/zai/api-key"));
+        assert!(Provider::ALL.iter().filter(|p| p.fleet_key_file().is_some()).all(|p| p.requires_key()));
+        let decl = RouteDecl { provedor: "glm".into(), api_key_file: Some(fleet.clone()), ..RouteDecl::default() };
+        assert_eq!(decl.key_file(), Some(fleet));
+        assert_eq!(decl.resolve().unwrap().key.unwrap().expose(), "zai-fleet");
     }
 
     #[test]

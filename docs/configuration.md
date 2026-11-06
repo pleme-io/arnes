@@ -77,11 +77,11 @@ notices, extension state and session file untouched. What each part does:
 
 | key | type, bound | default | notes |
 |---|---|---|---|
-| `provedor` | `local` \| `deepseek` \| `anthropic` \| `messages` | `local` | the free local route is the default; a paid provider is used once configured with its key; `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
-| `modelo` | string | the provider's (`local`, `deepseek-flash`, `claude-opus-5-5`) | checked against the provider's live catalogue at startup |
+| `provedor` | `local` \| `deepseek` \| `anthropic` \| `glm` \| `messages` | `local` | the free local route is the default; a paid provider is used once configured with its key; `glm` is Z.ai's coding plan at `https://api.z.ai/api/anthropic`, the endpoint `claude-glm` runs on; `messages` is any Anthropic-format gateway (OpenRouter): it names its own `endpoint` and `modelo`, takes a key, and sends it as bearer |
+| `modelo` | string | the provider's (`local`, `deepseek-flash`, `claude-opus-5-5`, `glm-5.3`) | checked against the provider's live catalogue at startup |
 | `endpoint` | URL | the provider's (`http://127.0.0.1:8080` for local) | |
-| `api_key_file` | path | none | wins over the env var |
-| `key_env` | env var name | `LOCAL_LLM_API_KEY` / `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` | |
+| `api_key_file` | path | none | wins over the env var; with neither, `glm` reads the fleet's `~/.config/zai/api-key` (nix `lib/claude-providers.nix` `keyPath`) when it exists, under `access.key-files` like a named file |
+| `key_env` | env var name | `LOCAL_LLM_API_KEY` / `DEEPSEEK_API_KEY` / `ANTHROPIC_API_KEY` / `ZAI_API_KEY` | |
 | `api_version` | string | `2023-06-01` | |
 | `system_note` | string | none | added to the system prompt while this route answers; travels with the route |
 | `prompt_sistema` | string | none | the system prompt |

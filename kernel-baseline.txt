@@ -15,12 +15,12 @@ rust: arnes 2715
 rust: arnes-anthropic 582
 # the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships
 rust: arnes-blue 752
-# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section
-rust: arnes-config 1731
+# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, each provider's facts (glm among them) and the fleet key file it falls back to
+rust: arnes-config 1756
 # conversation and usage types the kernel crates share
 rust: arnes-core 282
-# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served
-rust: arnes-loop 543
+# the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours
+rust: arnes-loop 544
 # MCP processes and sockets
 rust: arnes-mcp-client 811
 # durable formats and atomic writes

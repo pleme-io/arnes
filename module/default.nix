@@ -44,7 +44,7 @@ let
       kvBool "tools" f.tools}${kv "label" f.label}${
       let r = renderSection routeFacts f.facts; in optionalString (r != "") " :facts ${r}"})") fs
   })";
-  providers = [ "local" "deepseek" "anthropic" "messages" ];
+  providers = [ "local" "deepseek" "anthropic" "glm" "messages" ];
   routeFacts = {
     auth = leaf (types.enum [ "x-api-key" "bearer" ]) "How the key is sent. null → the provider's: bearer for `messages`, x-api-key for the rest.";
     describe = leaf types.str "What the model is good at, in a sentence: the text a route judge reads when it picks a route.";
@@ -334,14 +334,14 @@ in
       type = types.nullOr types.str;
       default = null;
       example = "deepseek-reasoner";
-      description = "Model ID, checked against the provider's live catalogue at startup. null → the provider's default (deepseek-flash / claude-opus-5-5).";
+      description = "Model ID, checked against the provider's live catalogue at startup. null → the provider's default (deepseek-flash / claude-opus-5-5 / glm-5.3).";
     };
 
     apiKeyFile = mkOption {
       type = types.nullOr types.str;
       default = null;
       example = "/Users/me/.config/deepseek/api-key";
-      description = "File holding the API key (e.g. a sops-nix secret path). null → the provider's env var.";
+      description = "File holding the API key (e.g. a sops-nix secret path). null → the provider's env var, then for glm the fleet's ~/.config/zai/api-key.";
     };
 
     theme = mkOption {
@@ -368,7 +368,7 @@ in
       description = "Override the provider's base URL (e.g. for proxies).";
     };
 
-    keyEnv = nullOr types.str "Env var holding the key when apiKeyFile is null. null → DEEPSEEK_API_KEY / ANTHROPIC_API_KEY.";
+    keyEnv = nullOr types.str "Env var holding the key when apiKeyFile is null. null → DEEPSEEK_API_KEY / ANTHROPIC_API_KEY / ZAI_API_KEY.";
     apiVersion = nullOr types.str "`anthropic-version` header. null → 2023-06-01.";
 
     # ── Sampling — null = provider default, omitted from the request ──
@@ -385,7 +385,7 @@ in
     thinking = nullOr (types.enum [ "on" "off" ]) "Reasoning on/off. null → provider default (DeepSeek: on, effort high); setting effort implies on.";
     effort = nullOr (types.enum [ "low" "high" "max" ]) "Reasoning effort (output_config.effort). `low` is the cheap default for routine agent steps.";
     thinkingBudget = nullOr types.ints.positive "Thinking token budget — honoured by Anthropic only; DeepSeek ignores it (use effort).";
-    echoThinking = nullOr types.bool "Re-send prior thinking blocks. null → provider rule (DeepSeek: no, Anthropic: yes).";
+    echoThinking = nullOr types.bool "Re-send prior thinking blocks. null → provider rule (DeepSeek: with tools, Anthropic and GLM: yes).";
 
     # ── Transport ──
     timeoutSecs = nullOr types.ints.positive "Whole-request timeout in seconds.";

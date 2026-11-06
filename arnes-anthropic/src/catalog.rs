@@ -169,6 +169,9 @@ mod tests {
     // Anthropic's shape: no window fields.
     const ANTHROPIC: &str = r#"{"data":[{"id":"claude-opus-5-5","type":"model","display_name":"Opus 5.5"}],"has_more":false}"#;
 
+    // Z.ai's /api/anthropic/v1/models body, 2026-11-06, cut to the two plan models.
+    const GLM: &str = r#"{"data":[{"created_at":"2026-08-14T00:00:00Z","display_name":"GLM-5.3","id":"glm-5.3","type":"model"},{"created_at":"2026-08-14T00:00:00Z","display_name":"GLM-5.3-Flash","id":"glm-5.3-flash","type":"model"}],"firstId":"glm-4.5","hasMore":false,"lastId":"glm-5.3-flashx-legal"}"#;
+
     #[test]
     fn parses_both_provider_shapes() {
         let d = parse(DEEPSEEK).unwrap();
@@ -179,6 +182,9 @@ mod tests {
         let a = parse(ANTHROPIC).unwrap();
         assert_eq!(a[0].id, "claude-opus-5-5");
         assert_eq!(a[0].context_window, None);
+        let g = parse(GLM).unwrap();
+        assert_eq!(g.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["glm-5.3", "glm-5.3-flash"]);
+        assert_eq!(g[0].context_window, None);
     }
 
     #[test]

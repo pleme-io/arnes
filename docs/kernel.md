@@ -36,8 +36,8 @@ capability-scopes bidamas, and reloads them.
 | provider transport: wire, streaming, retries, fallback execution, each route's auth header (`x-api-key` or bearer), every failure judged by `handan` into one typed verdict (`unauthorized`, `throttled`, `server-error`, `unreachable`, `timed-out`), kept per route as its health beside the route that served the turn and its latency | `arnes-anthropic` | network and secrets |
 | MCP client and pool | `arnes-mcp-client` | processes and sockets |
 | tool loop, permission gate, guardrail | `arnes-loop` | a bidama may veto, never grant |
-| ledger, sessions, layout, retention; each call recorded against the route that served it, at that route's declared price | `arnes-loop/ledger.rs`, `arnes-store` | durable formats, atomic writes |
-| config loading, hot reload, routes as data (the `messages` provider, route facts) | `arnes-config`, shikumi | the declaration layer |
+| ledger, sessions, layout, retention; each call recorded against the route that served it, at that route's declared price, in its provider's own peak hours (one table: DeepSeek, GLM) | `arnes-loop/ledger.rs`, `arnes-store` | durable formats, atomic writes |
+| config loading, hot reload, routes as data (the `messages` provider, route facts); each provider's facts, `glm` (Z.ai, the endpoint `claude-glm` runs on) among them, and the fleet's key file a provider's key is read from when nothing names one | `arnes-config`, shikumi | the declaration layer; a key file never reaches blue |
 | vigy runtime embedding | `arnes-vigy`, vigy-runtime | the scheduler is vigy's |
 
 ## 2. The bidamas
