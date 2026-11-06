@@ -625,6 +625,8 @@ struct TurnKit<'a> {
     stream: bool,
     /// An overflowing turn compacts and is retried once (`turn.compact`).
     compact: bool,
+    /// Repeats of one call before the loop note (`turn.loop-nudge`).
+    loop_nudge: u32,
     /// The route's endpoint and whether it is the free local one, for the
     /// failure message.
     route: (String, bool),
@@ -708,7 +710,7 @@ fn apply_routed(live: &mut Live, state: &mut TuiState, answer: Option<std::resul
 }
 
 fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandle<()> {
-    let (rounds, route, compact) = (kit.rounds, kit.route.clone(), kit.compact);
+    let (rounds, route, compact, loop_nudge) = (kit.rounds, kit.route.clone(), kit.compact, kit.loop_nudge);
     state.set_busy(true);
     state.last_error = None;
     // The turn owns a snapshot; the UI keeps rendering and reading keys, so
@@ -731,11 +733,12 @@ fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandl
     }
     let observed = Observed { inner: gate, tx: kit.activity.clone() };
     tokio::spawn(async move {
-        let mut result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await;
+        let opts = arnes_loop::TurnOpts { ledger: Some(&ledger), link: Some(&inbox), loop_nudge };
+        let mut result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, &opts).await;
         let mut compacted = false;
         if compact && result.as_ref().is_err_and(arnes_loop::is_context_overflow) && matches!(arnes_loop::compact(&client, &mut conversation, None).await, Ok(Some(_))) {
             compacted = true;
-            result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await;
+            result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, &opts).await;
         }
         let result = result.map(|_| ()).map_err(|e| turn_failure(&e, &route));
         let _ = tx.send(TurnDone { conversation, result, compacted }).await;
@@ -1317,6 +1320,7 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                 rounds: live.knobs.max_rounds,
                 stream: live.knobs.stream,
                 compact: live.knobs.compact,
+                loop_nudge: live.knobs.loop_nudge,
                 route: live.route(),
                 inbox: &inbox,
             }

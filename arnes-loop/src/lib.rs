@@ -198,20 +198,36 @@ pub async fn compact(client: &AnthropicClient, conv: &mut Conversation, focus: O
 
 /// [`run_turn`], recording every API call in `ledger` as it returns.
 pub async fn run_turn_recorded<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Conversation, tools: &[Tool], dispatcher: &D, max_turns: u32, ledger: Option<&ledger::Ledger>) -> Result<Usage> {
-    run_turn_with(client, conv, tools, dispatcher, max_turns, ledger, None).await
+    run_turn_with(client, conv, tools, dispatcher, max_turns, &TurnOpts { ledger, ..TurnOpts::default() }).await
+}
+
+/// How one turn runs beyond its client, tools and rounds.
+#[derive(Default, Clone, Copy)]
+pub struct TurnOpts<'a> {
+    /// Every API call is recorded here as it returns.
+    pub ledger: Option<&'a ledger::Ledger>,
+    /// Prompts in, checkpoints out (see [`TurnLink`]).
+    pub link: Option<&'a TurnLink>,
+    /// The same call (tool and input) made this many times in one turn adds
+    /// a note after that round's results; 0 never.
+    pub loop_nudge: u32,
+}
+
+/// The note a repeated call earns: the model is told it is looping.
+#[must_use]
+pub fn loop_note(name: &str, times: u32) -> ContentBlock {
+    ContentBlock::Text {
+        text: format!(
+            "[arnes: you have called {name} with the same input {times} times this turn and it answers the same way. Do not call it again with that input; change the approach, or say what blocks you.]"
+        ),
+    }
 }
 
 /// [`run_turn_recorded`], handing the model what `link` holds at each tool
 /// boundary and checkpointing each finished round into it.
-pub async fn run_turn_with<D: ToolDispatcher>(
-    client: &AnthropicClient,
-    conv: &mut Conversation,
-    tools: &[Tool],
-    dispatcher: &D,
-    max_turns: u32,
-    ledger: Option<&ledger::Ledger>,
-    link: Option<&TurnLink>,
-) -> Result<Usage> {
+pub async fn run_turn_with<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Conversation, tools: &[Tool], dispatcher: &D, max_turns: u32, opts: &TurnOpts<'_>) -> Result<Usage> {
+    let (ledger, link) = (opts.ledger, opts.link);
+    let mut seen: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
     let mut total_usage = Usage::default();
     for turn in 0..max_turns {
         let resp: MessagesResponse = client.send(conv, tools).await?;
@@ -241,6 +257,14 @@ pub async fn run_turn_with<D: ToolDispatcher>(
                     out
                 };
                 let mut result_blocks: Vec<ContentBlock> = Vec::with_capacity(uses.len());
+                let mut notes = Vec::new();
+                for (_, name, input) in &uses {
+                    let n = seen.entry(format!("{name}\u{0}{input}")).or_default();
+                    *n += 1;
+                    if opts.loop_nudge > 0 && *n == opts.loop_nudge {
+                        notes.push(loop_note(name, *n));
+                    }
+                }
                 for ((id, name, _), outcome) in uses.into_iter().zip(outcomes) {
                     match outcome {
                         Ok(text) => result_blocks.push(ContentBlock::ToolResult { tool_use_id: id, content: text, is_error: false }),
@@ -250,6 +274,7 @@ pub async fn run_turn_with<D: ToolDispatcher>(
                         }
                     }
                 }
+                result_blocks.extend(notes);
                 if let Some(l) = link {
                     result_blocks.extend(l.take().iter().map(|p| mid_turn_text(p)));
                 }
@@ -318,7 +343,7 @@ mod tests {
         conv.push(Message::user_text("look at a"));
         let inbox = TurnLink::default();
         inbox.offer(vec!["also check b".into()]);
-        run_turn_with(&client, &mut conv, &[], &FakeDispatcher, 4, None, Some(&inbox)).await.unwrap();
+        run_turn_with(&client, &mut conv, &[], &FakeDispatcher, 4, &TurnOpts { link: Some(&inbox), ..TurnOpts::default() }).await.unwrap();
         let sent = seen.join().unwrap();
         assert!(!sent[0].contains("also check b"), "the first call predates the tool boundary");
         assert!(sent[1].contains("while you were working") && sent[1].contains("also check b"), "{}", sent[1]);
@@ -406,6 +431,22 @@ mod tests {
                 .collect();
             assert_eq!(ids, ["a:done Read", "b:done Grep"], "results keep the reply's order");
         }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_same_call_made_again_and_again_earns_one_note() {
+        const SAME: &str = r#"{"id":"m","type":"message","role":"assistant","model":"m","content":[{"type":"tool_use","id":"x","name":"Grep","input":{"pattern":"foo"}}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        const OTHER: &str = r#"{"id":"m","type":"message","role":"assistant","model":"m","content":[{"type":"tool_use","id":"y","name":"Grep","input":{"pattern":"bar"}}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        const DONE: &str =
+            r#"{"id":"m","type":"message","role":"assistant","model":"m","content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        let (url, _seen) = arnes_anthropic::testing::scripted_server(vec![("200 OK", SAME), ("200 OK", OTHER), ("200 OK", SAME), ("200 OK", SAME), ("200 OK", SAME), ("200 OK", DONE)]);
+        let client = AnthropicClient::new(None).with_base_url(url);
+        let mut conv = Conversation::default();
+        conv.push(Message::user_text("find foo"));
+        run_turn_with(&client, &mut conv, &[], &FakeDispatcher, 8, &TurnOpts { loop_nudge: 3, ..TurnOpts::default() }).await.unwrap();
+        let noted: Vec<usize> =
+            conv.messages.iter().enumerate().filter(|(_, m)| m.content.iter().any(|b| matches!(b, ContentBlock::Text { text } if text.contains("same input 3 times")))).map(|(i, _)| i).collect();
+        assert_eq!(noted, [8], "the third identical call, once; the pattern change does not count");
     }
 
     #[tokio::test]

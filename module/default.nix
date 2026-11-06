@@ -183,6 +183,7 @@ let
       queued = leaf (types.enum [ "next-tool" "after-turn" ]) "When a prompt typed during a turn reaches the model. null → next-tool.";
       stream = leaf onOff "Replies stream and are drawn as they arrive. null → on.";
       compact = leaf onOff "A turn the window cannot hold compacts the earlier conversation and is retried once. null → on.";
+      loopNudge = leaf (between 0 20) "Repeats of one tool call in a turn before arnes tells the model it is looping; 0 never. null → 3.";
     };
     skills = {
       enabled = leaf types.bool "Load Claude-Code-style SKILL.md skills. null → on.";

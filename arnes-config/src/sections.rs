@@ -349,6 +349,10 @@ section! {
         /// `on` (default): a turn the model's window cannot hold compacts
         /// the earlier conversation into a summary and is retried once.
         compact: Option<String>,
+        /// The same tool call (name and input) made this many times in one
+        /// turn adds a note telling the model it is looping. 0..=20,
+        /// default 3; 0 never.
+        loop_nudge: Option<u32>,
     }
 }
 

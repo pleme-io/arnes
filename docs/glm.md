@@ -113,7 +113,8 @@ moves the turn or the operator waits.
 | G5 compaction on overflow and `/compact` | ✅ | ✅ | ✅ | ❌ |
 | G5 threshold compaction, tool-result clearing first | ✅ | ❌ | ❌ | ❌ |
 | G7 spent balance or quota (1113, 1308, 1310) fails over unretried as `quota-exhausted` | ✅ | ✅ | ✅ | ❌ |
-| G0, G3, G4, G6, the rest of G7 | ✅ | ❌ | ❌ | ❌ |
+| G4 loop nudge (`turn.loop-nudge`) | ✅ | ✅ | ✅ | ❌ |
+| G0, G3, the rest of G4, G6, the rest of G7 | ✅ | ❌ | ❌ | ❌ |
 
 ## 7. Open, the operator's
 

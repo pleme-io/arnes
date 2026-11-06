@@ -565,6 +565,8 @@ pub struct Knobs {
     pub stream: bool,
     /// A turn that overflows the window compacts and is retried once.
     pub compact: bool,
+    /// Repeats of one call before the loop note; 0 never.
+    pub loop_nudge: u32,
     pub wheel_lines: usize,
 }
 
@@ -1320,6 +1322,7 @@ impl ArnesConfig {
             queued_mid_turn: true,
             stream: true,
             compact: true,
+            loop_nudge: take(bounded("turn.loop-nudge", self.turn.loop_nudge, 0, 20, 3)),
             wheel_lines: take(bounded("ui.wheel-lines", self.ui.wheel_lines, 1, 20, 3)) as usize,
         };
         let (wheel, r) = sections::one_of("ui.wheel", self.ui.wheel.as_deref(), &["conversation", "terminal"], "conversation");
@@ -2295,7 +2298,7 @@ mod tests {
             free_route: FreeRouteSection { enabled: Some(false), endpoint: Some("http://gpubox:8080".into()), on_device: Some(false), on_device_endpoint: None, on_device_model: None },
             catalog: CatalogSection { max_age_hours: Some(1) },
             mentions: MentionsSection { max_files: Some(100), max_kib: Some(64) },
-            turn: TurnSection { max_rounds: Some(8), queued: Some("after-turn".into()), stream: Some("off".into()), compact: Some("off".into()) },
+            turn: TurnSection { max_rounds: Some(8), queued: Some("after-turn".into()), stream: Some("off".into()), compact: Some("off".into()), loop_nudge: Some(0) },
             extras: HashMap::from([("escriba_socket".into(), "/tmp/e.sock".into())]),
             ..ArnesConfig::default()
         }
@@ -2380,7 +2383,7 @@ mod tests {
     fn knobs_are_bounded_and_refused_one_by_one() {
         let c = ArnesConfig {
             mcp: McpSection { connect_timeout_secs: Some(0), call_timeout_secs: Some(30), ..McpSection::default() },
-            turn: TurnSection { max_rounds: Some(1000), queued: None, stream: None, compact: None },
+            turn: TurnSection { max_rounds: Some(1000), queued: None, stream: None, compact: None, loop_nudge: None },
             ..ArnesConfig::default()
         };
         let (k, refused) = c.knobs();
