@@ -1,6 +1,6 @@
 host: arnes-blue 24
 rust: arnes 2904
-rust: arnes-anthropic 728
+rust: arnes-anthropic 741
 rust: arnes-blue 805
 rust: arnes-config 1909
 rust: arnes-core 282

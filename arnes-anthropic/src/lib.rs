@@ -48,6 +48,7 @@ impl AnthropicError {
             Self::Http(e) if e.is_timeout() => "timed-out".into(),
             Self::Http(_) => "unreachable".into(),
             Self::MissingKey => "unauthorized".into(),
+            Self::Api { status, body } if exhausted(*status, body) => "quota-exhausted".into(),
             Self::Api { status, .. } => handan::judge(*status, None).verdict().to_string(),
             Self::Json(_) => "other".into(),
         }
@@ -432,7 +433,7 @@ impl AnthropicClient {
             if status.is_success() {
                 return Ok(serde_json::from_str(&text)?);
             }
-            if attempt < self.params.max_retries && is_transient(status.as_u16()) {
+            if attempt < self.params.max_retries && is_transient(status.as_u16()) && !exhausted(status.as_u16(), &text) {
                 let backoff = retry_after.unwrap_or_else(|| self.params.retry_base.saturating_mul(1 << attempt.min(16)));
                 tracing::warn!(status = status.as_u16(), attempt, ?backoff, "retrying");
                 tokio::time::sleep(backoff).await;
@@ -442,6 +443,23 @@ impl AnthropicClient {
             return Err(AnthropicError::Api { status: status.as_u16(), body: text });
         }
     }
+}
+
+/// A refusal no wait can fix: the account's balance or quota is spent. It
+/// is not retried; the next route is tried at once. Z.ai says it as 429 with
+/// code 1113 (no balance) or 1308/1310 (a window's quota used up); others
+/// say it in words.
+#[must_use]
+pub fn exhausted(status: u16, body: &str) -> bool {
+    if !matches!(status, 402 | 403 | 429) {
+        return false;
+    }
+    let code = serde_json::from_str::<serde_json::Value>(body).ok().and_then(|v| v.pointer("/error/code").and_then(|c| c.as_str().map(str::to_owned).or_else(|| c.as_u64().map(|n| n.to_string()))));
+    if code.as_deref().is_some_and(|c| matches!(c, "1113" | "1308" | "1310")) {
+        return true;
+    }
+    let b = body.to_ascii_lowercase();
+    ["insufficient balance", "insufficient_quota", "please recharge", "credit balance is too low", "exceeded your current quota"].iter().any(|w| b.contains(w))
 }
 
 /// Statuses worth retrying: timeout, conflict, rate limit, server/overload.
@@ -594,6 +612,34 @@ pub mod testing {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_spent_balance_or_quota_is_not_retried_but_a_busy_429_is() {
+        let zai = r#"{"type":"error","error":{"type":"rate_limit_error","code":"1113","message":"[1113][Insufficient balance or no resource package. Please recharge.]"}}"#;
+        assert!(exhausted(429, zai));
+        assert!(exhausted(429, r#"{"error":{"code":"1308","message":"usage limit reached for 5 hour"}}"#));
+        assert!(exhausted(429, r#"{"error":{"message":"You exceeded your current quota"}}"#));
+        assert!(!exhausted(429, r#"{"error":{"code":"1302","message":"too many requests"}}"#), "a busy server is worth the wait");
+        assert!(!exhausted(500, zai), "only a refusal status");
+        let e = AnthropicError::Api { status: 429, body: zai.into() };
+        assert_eq!(e.verdict(), "quota-exhausted");
+        assert!(e.warrants_failover(), "the next route is tried");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_spent_balance_fails_over_at_once_without_retries() {
+        let zai = r#"{"type":"error","error":{"type":"rate_limit_error","code":"1113","message":"Insufficient balance"}}"#;
+        let ok = r#"{"id":"m","type":"message","role":"assistant","model":"m","content":[],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        // A retry would reach the second reply and succeed.
+        let (url, _seen) = testing::scripted_server(vec![("429 Too Many Requests", zai), ("200 OK", ok)]);
+        let mut c = AnthropicClient::new(None).with_base_url(url);
+        c.params.max_retries = 3;
+        c.params.retry_base = std::time::Duration::from_millis(1);
+        let mut conv = Conversation::default();
+        conv.push(Message::user_text("hi"));
+        let err = c.send(&conv, &[]).await.unwrap_err();
+        assert_eq!(err.verdict(), "quota-exhausted", "not retried: {err}");
+    }
 
     fn key(s: &str) -> cofre_secret::Secret {
         cofre_secret::Secret::new(s).unwrap()
