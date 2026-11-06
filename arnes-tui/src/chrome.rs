@@ -41,7 +41,41 @@ pub fn demand(state: &TuiState, now: Instant) -> Demand {
     };
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     let claim = if full == 0 { 0 } else { (3.0 + f32::from(full.saturating_sub(3)) * open).round() as u16 }.min(full);
-    Demand { prompt_rows, notices: state.notice_rows(), claim }
+    Demand { prompt_rows, notices: state.notice_rows(), claim, queue: queue_rows(state) }
+}
+
+/// The queue shows up to this many prompts, then one `+N more` row.
+const QUEUE_SHOWN: usize = 3;
+
+fn queue_rows(state: &TuiState) -> u16 {
+    let n = state.input.queued.len();
+    #[allow(clippy::cast_possible_truncation)]
+    let rows = (n.min(QUEUE_SHOWN) + usize::from(n > QUEUE_SHOWN)) as u16;
+    rows
+}
+
+/// The prompts waiting for the model, oldest first, each on one muted row;
+/// the newest is the one `Up` takes back to edit.
+fn draw_queue(buf: &mut Buffer, area: Region, state: &TuiState, palette: &Palette) {
+    let q = &state.input.queued;
+    if area.is_empty() || q.is_empty() {
+        return;
+    }
+    let style = Style::default().fg(palette.muted);
+    let w = area.w.saturating_sub(2);
+    let mut y = area.y;
+    for (i, text) in q.iter().take(QUEUE_SHOWN).enumerate() {
+        if y >= area.y + area.h {
+            return;
+        }
+        let one = text.split('\n').collect::<Vec<_>>().join(" \u{23ce} ");
+        let mark = if i + 1 == q.len().min(QUEUE_SHOWN) && q.len() <= QUEUE_SHOWN { "  \u{2191} edits" } else { "" };
+        buf.set_stringn(area.x + 1, y, &format!("\u{203a} {one}{mark}"), w, style);
+        y += 1;
+    }
+    if q.len() > QUEUE_SHOWN && y < area.y + area.h {
+        buf.set_stringn(area.x + 1, y, &format!("+{} more \u{b7} \u{2191} takes the newest back", q.len() - QUEUE_SHOWN), w, style);
+    }
 }
 
 /// [`draw_frame`] at a given instant: a frame is a pure function of
@@ -86,6 +120,7 @@ pub fn draw_frame_at(buf: &mut Buffer, state: &TuiState, keymap: &Keymap, now: I
         }
     }
     draw_notices(buf, r.notices, state, &palette, now);
+    draw_queue(buf, r.queue, state, &palette);
     draw_activity(buf, r.activity, state, &palette, now);
     if !r.prompt.is_empty() {
         draw_prompt(buf, r.prompt, state, &palette, now);

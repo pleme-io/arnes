@@ -39,6 +39,8 @@ pub struct Demand {
     pub notices: u16,
     /// Rows claimed by a picker or the approval question.
     pub claim: u16,
+    /// Rows of prompts waiting for the model (the queue).
+    pub queue: u16,
 }
 
 /// Every region, top to bottom.
@@ -47,6 +49,7 @@ pub struct Regions {
     pub conversation: Region,
     pub claim: Region,
     pub notices: Region,
+    pub queue: Region,
     pub activity: Region,
     pub prompt: Region,
     pub status: Region,
@@ -55,8 +58,8 @@ pub struct Regions {
 impl Regions {
     /// All regions, in stacking order.
     #[must_use]
-    pub const fn all(&self) -> [Region; 6] {
-        [self.conversation, self.claim, self.notices, self.activity, self.prompt, self.status]
+    pub const fn all(&self) -> [Region; 7] {
+        [self.conversation, self.claim, self.notices, self.queue, self.activity, self.prompt, self.status]
     }
 }
 
@@ -78,6 +81,7 @@ pub fn layout(cols: u16, rows: u16, d: Demand) -> Regions {
     let activity = take(1);
     let conv_min = take(1);
     let notices = take(d.notices);
+    let queue = take(d.queue);
     let claim = take(d.claim);
     let prompt_extra = take((d.prompt_rows.max(1) + 2).saturating_sub(3));
     let conv = conv_min + left;
@@ -89,7 +93,7 @@ pub fn layout(cols: u16, rows: u16, d: Demand) -> Regions {
         y += h;
         r
     };
-    Regions { conversation: next(conv), claim: next(claim), notices: next(notices), activity: next(activity), prompt: next(prompt), status: next(status) }
+    Regions { conversation: next(conv), claim: next(claim), notices: next(notices), queue: next(queue), activity: next(activity), prompt: next(prompt), status: next(status) }
 }
 
 #[cfg(test)]
@@ -100,8 +104,8 @@ mod tests {
     fn regions_tile_the_screen_without_overlap_at_every_size() {
         for cols in [1u16, 10, 40, 80, 200] {
             for rows in 0u16..40 {
-                for (n, c, p) in [(0, 0, 1), (3, 12, 1), (1, 8, 8), (5, 30, 20)] {
-                    let r = layout(cols, rows, Demand { prompt_rows: p, notices: n, claim: c });
+                for (n, c, p, q) in [(0, 0, 1, 0), (3, 12, 1, 2), (1, 8, 8, 4), (5, 30, 20, 1)] {
+                    let r = layout(cols, rows, Demand { prompt_rows: p, notices: n, claim: c, queue: q });
                     let all = r.all();
                     for (i, a) in all.iter().enumerate() {
                         assert!(a.y + a.h <= rows, "{cols}x{rows}: region {i} leaves the screen");
@@ -118,18 +122,18 @@ mod tests {
 
     #[test]
     fn priorities_on_a_tiny_terminal() {
-        let r = layout(40, 5, Demand { prompt_rows: 1, notices: 2, claim: 12 });
+        let r = layout(40, 5, Demand { prompt_rows: 1, notices: 2, claim: 12, queue: 0 });
         assert_eq!((r.prompt.h, r.status.h, r.activity.h, r.conversation.h), (3, 1, 1, 0));
-        let r = layout(40, 6, Demand { prompt_rows: 1, notices: 2, claim: 12 });
+        let r = layout(40, 6, Demand { prompt_rows: 1, notices: 2, claim: 12, queue: 0 });
         assert_eq!((r.conversation.h, r.notices.h, r.claim.h), (1, 0, 0));
-        let r = layout(40, 12, Demand { prompt_rows: 1, notices: 2, claim: 12 });
+        let r = layout(40, 12, Demand { prompt_rows: 1, notices: 2, claim: 12, queue: 0 });
         assert_eq!((r.conversation.h, r.notices.h, r.claim.h), (1, 2, 4), "the claim takes what is left, the conversation keeps a row");
     }
 
     #[test]
     fn the_conversation_yields_to_notices() {
-        let quiet = layout(80, 30, Demand { prompt_rows: 1, notices: 0, claim: 0 });
-        let loud = layout(80, 30, Demand { prompt_rows: 1, notices: 2, claim: 0 });
+        let quiet = layout(80, 30, Demand { prompt_rows: 1, notices: 0, claim: 0, queue: 0 });
+        let loud = layout(80, 30, Demand { prompt_rows: 1, notices: 2, claim: 0, queue: 0 });
         assert_eq!(loud.conversation.h + 2, quiet.conversation.h);
         assert_eq!(loud.prompt, quiet.prompt, "the prompt never moves for a notice");
     }

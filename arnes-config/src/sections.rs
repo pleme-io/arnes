@@ -339,6 +339,10 @@ section! {
         /// Most model calls in one turn (each tool round is one). 1..=256,
         /// default 16.
         max_rounds: Option<u32>,
+        /// When a prompt typed during a turn reaches the model: `next-tool`
+        /// (default: after the round's tool results, mid-turn) or
+        /// `after-turn` (as the next prompt, once the turn ends).
+        queued: Option<String>,
     }
 }
 

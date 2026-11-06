@@ -559,6 +559,8 @@ pub struct Knobs {
     pub idle_poll: std::time::Duration,
     /// The wheel scrolls the conversation (arnes captures the mouse).
     pub wheel_captured: bool,
+    /// A prompt typed during a turn reaches the model at the next tool boundary.
+    pub queued_mid_turn: bool,
     pub wheel_lines: usize,
 }
 
@@ -1311,11 +1313,14 @@ impl ArnesConfig {
             frame_rate: take(bounded("ui.timing.frame-rate", self.ui.timing.frame_rate, 1, 240, 60)),
             idle_poll: std::time::Duration::from_millis(u64::from(take(bounded("ui.timing.idle-poll-ms", self.ui.timing.idle_poll_ms, 10, 1000, 50)))),
             wheel_captured: true,
+            queued_mid_turn: true,
             wheel_lines: take(bounded("ui.wheel-lines", self.ui.wheel_lines, 1, 20, 3)) as usize,
         };
         let (wheel, r) = sections::one_of("ui.wheel", self.ui.wheel.as_deref(), &["conversation", "terminal"], "conversation");
         refused.extend(r);
-        let k = Knobs { wheel_captured: wheel == "conversation", ..k };
+        let (queued, r) = sections::one_of("turn.queued", self.turn.queued.as_deref(), &["next-tool", "after-turn"], "next-tool");
+        refused.extend(r);
+        let k = Knobs { wheel_captured: wheel == "conversation", queued_mid_turn: queued == "next-tool", ..k };
         (k, refused)
     }
 
@@ -2280,7 +2285,7 @@ mod tests {
             free_route: FreeRouteSection { enabled: Some(false), endpoint: Some("http://gpubox:8080".into()), on_device: Some(false), on_device_endpoint: None, on_device_model: None },
             catalog: CatalogSection { max_age_hours: Some(1) },
             mentions: MentionsSection { max_files: Some(100), max_kib: Some(64) },
-            turn: TurnSection { max_rounds: Some(8) },
+            turn: TurnSection { max_rounds: Some(8), queued: Some("after-turn".into()) },
             extras: HashMap::from([("escriba_socket".into(), "/tmp/e.sock".into())]),
             ..ArnesConfig::default()
         }
@@ -2365,7 +2370,7 @@ mod tests {
     fn knobs_are_bounded_and_refused_one_by_one() {
         let c = ArnesConfig {
             mcp: McpSection { connect_timeout_secs: Some(0), call_timeout_secs: Some(30), ..McpSection::default() },
-            turn: TurnSection { max_rounds: Some(1000) },
+            turn: TurnSection { max_rounds: Some(1000), queued: None },
             ..ArnesConfig::default()
         };
         let (k, refused) = c.knobs();

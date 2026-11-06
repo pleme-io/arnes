@@ -233,6 +233,7 @@ scheduler's facts.
 | `module_budget_ms` | 250 | wall-clock budget for one blue command or segment call |
 | `bidamas` | none | bidamas to host beside `meirei` and `joutai`, by name; re-read on reload |
 | `turn.max_rounds` | 16 (1..=256) | most model calls in one turn |
+| `turn.queued` | next-tool | a prompt typed during a turn waits in the stack above the prompt (`Up` takes the newest back to edit) and reaches the model after the round's tool results, as a text block saying the user sent it mid-turn, then leaves the stack; a `/command` waits for the turn's end, and a mid-turn prompt skips `before-submit` hooks. `after-turn`: every queued prompt is the next prompt once the turn ends, through the hooks |
 | `mentions.max_files` | 20000 (1..=1000000) | files the `@` picker lists |
 | `mentions.max_kib` | 256 (1..=16384) | largest file an `@path` attaches |
 | `extras` | none | free-form strings for agent-specific knobs |

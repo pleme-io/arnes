@@ -68,8 +68,63 @@ pub async fn run_turn<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Co
     run_turn_recorded(client, conv, tools, dispatcher, max_turns, None).await
 }
 
+/// Prompts the user sent while a turn ran, handed to the model at the turn's
+/// next tool boundary. The UI offers what is waiting; the turn takes it; the
+/// UI then learns what was delivered and drops it from its queue.
+#[derive(Debug, Clone, Default)]
+pub struct Inbox(std::sync::Arc<std::sync::Mutex<InboxState>>);
+
+#[derive(Debug, Default)]
+struct InboxState {
+    waiting: Vec<String>,
+    delivered: Vec<String>,
+}
+
+impl Inbox {
+    /// Replace what is waiting with `prompts`, the UI's queue as it stands.
+    pub fn offer(&self, prompts: Vec<String>) {
+        if let Ok(mut s) = self.0.lock() {
+            s.waiting = prompts;
+        }
+    }
+
+    /// Everything waiting, now delivered.
+    pub fn take(&self) -> Vec<String> {
+        let Ok(mut s) = self.0.lock() else { return Vec::new() };
+        let taken = std::mem::take(&mut s.waiting);
+        s.delivered.extend(taken.iter().cloned());
+        taken
+    }
+
+    /// What the turn took since the last call, oldest first.
+    pub fn delivered(&self) -> Vec<String> {
+        self.0.lock().map(|mut s| std::mem::take(&mut s.delivered)).unwrap_or_default()
+    }
+}
+
+/// The text block a prompt sent mid-turn becomes, after that round's tool
+/// results.
+#[must_use]
+pub fn mid_turn_text(prompt: &str) -> ContentBlock {
+    ContentBlock::Text { text: format!("[The user sent this while you were working:]\n{prompt}") }
+}
+
 /// [`run_turn`], recording every API call in `ledger` as it returns.
 pub async fn run_turn_recorded<D: ToolDispatcher>(client: &AnthropicClient, conv: &mut Conversation, tools: &[Tool], dispatcher: &D, max_turns: u32, ledger: Option<&ledger::Ledger>) -> Result<Usage> {
+    run_turn_with(client, conv, tools, dispatcher, max_turns, ledger, None).await
+}
+
+/// [`run_turn_recorded`], handing the model what `inbox` holds at each tool
+/// boundary.
+pub async fn run_turn_with<D: ToolDispatcher>(
+    client: &AnthropicClient,
+    conv: &mut Conversation,
+    tools: &[Tool],
+    dispatcher: &D,
+    max_turns: u32,
+    ledger: Option<&ledger::Ledger>,
+    inbox: Option<&Inbox>,
+) -> Result<Usage> {
     let mut total_usage = Usage::default();
     for turn in 0..max_turns {
         let resp: MessagesResponse = client.send(conv, tools).await?;
@@ -95,6 +150,9 @@ pub async fn run_turn_recorded<D: ToolDispatcher>(client: &AnthropicClient, conv
                             result_blocks.push(ContentBlock::ToolResult { tool_use_id: id, content: format!("{e}"), is_error: true });
                         }
                     }
+                }
+                if let Some(i) = inbox {
+                    result_blocks.extend(i.take().iter().map(|p| mid_turn_text(p)));
                 }
                 conv.push(Message { role: Role::User, content: result_blocks });
             }
@@ -145,6 +203,28 @@ mod tests {
             ContentBlock::ToolResult { content, .. } => assert_eq!(content, "hello from tool"),
             other => panic!("expected tool_result, got {other:?}"),
         }
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_prompt_sent_mid_turn_follows_the_tool_results_of_the_next_round() {
+        const TOOL: &str = r#"{"id":"m1","type":"message","role":"assistant","model":"m","content":[{"type":"tool_use","id":"t1","name":"read_file","input":{}}],"stop_reason":"tool_use","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        const DONE: &str =
+            r#"{"id":"m2","type":"message","role":"assistant","model":"m","content":[{"type":"text","text":"done"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}"#;
+        let (url, seen) = arnes_anthropic::testing::scripted_server(vec![("200 OK", TOOL), ("200 OK", DONE)]);
+        let client = AnthropicClient::new(None).with_base_url(url);
+        let mut conv = Conversation::default();
+        conv.push(Message::user_text("look at a"));
+        let inbox = Inbox::default();
+        inbox.offer(vec!["also check b".into()]);
+        run_turn_with(&client, &mut conv, &[], &FakeDispatcher, 4, None, Some(&inbox)).await.unwrap();
+        let sent = seen.join().unwrap();
+        assert!(!sent[0].contains("also check b"), "the first call predates the tool boundary");
+        assert!(sent[1].contains("while you were working") && sent[1].contains("also check b"), "{}", sent[1]);
+        let results = &conv.messages[2].content;
+        assert!(matches!(results[0], ContentBlock::ToolResult { .. }), "tool results come first");
+        assert!(matches!(&results[1], ContentBlock::Text { text } if text.ends_with("also check b")));
+        assert_eq!(inbox.delivered(), ["also check b"]);
+        assert!(inbox.take().is_empty() && inbox.delivered().is_empty(), "delivered once");
     }
 
     #[tokio::test]

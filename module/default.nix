@@ -180,6 +180,7 @@ let
     };
     turn = {
       maxRounds = leaf (between 1 256) "Most model calls in one turn. null → 16.";
+      queued = leaf (types.enum [ "next-tool" "after-turn" ]) "When a prompt typed during a turn reaches the model. null → next-tool.";
     };
     skills = {
       enabled = leaf types.bool "Load Claude-Code-style SKILL.md skills. null → on.";

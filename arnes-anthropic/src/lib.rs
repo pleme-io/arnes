@@ -526,31 +526,47 @@ pub mod testing {
     /// failure either way).
     #[must_use]
     pub fn one_shot_server(status: &'static str, body: &'static str) -> (String, std::thread::JoinHandle<String>) {
+        let (url, handle) = scripted_server(vec![(status, body)]);
+        (url, std::thread::spawn(move || handle.join().unwrap().remove(0)))
+    }
+
+    /// [`one_shot_server`] for a conversation: answers request `i` with
+    /// reply `i`, then stops, and hands back every request it read.
+    ///
+    /// # Panics
+    /// As [`one_shot_server`].
+    #[must_use]
+    pub fn scripted_server(replies: Vec<(&'static str, &'static str)>) -> (String, std::thread::JoinHandle<Vec<String>>) {
         use std::io::{BufRead, BufReader, Read, Write};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let handle = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            let mut reader = BufReader::new(stream.try_clone().unwrap());
-            let mut head = String::new();
-            let mut length = 0usize;
-            loop {
-                let mut line = String::new();
-                reader.read_line(&mut line).unwrap();
-                if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                    length = v.trim().parse().unwrap();
-                }
-                if line == "\r\n" {
-                    break;
-                }
-                head.push_str(&line);
-            }
-            let mut sink = vec![0u8; length];
-            reader.read_exact(&mut sink).unwrap();
-            let reply = format!("HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
-            stream.write_all(reply.as_bytes()).unwrap();
-            // The request's head, a blank line, then its body.
-            format!("{head}\r\n{}", String::from_utf8_lossy(&sink))
+            replies
+                .into_iter()
+                .map(|(status, body)| {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    let mut reader = BufReader::new(stream.try_clone().unwrap());
+                    let mut head = String::new();
+                    let mut length = 0usize;
+                    loop {
+                        let mut line = String::new();
+                        reader.read_line(&mut line).unwrap();
+                        if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                            length = v.trim().parse().unwrap();
+                        }
+                        if line == "\r\n" {
+                            break;
+                        }
+                        head.push_str(&line);
+                    }
+                    let mut sink = vec![0u8; length];
+                    reader.read_exact(&mut sink).unwrap();
+                    let reply = format!("HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
+                    stream.write_all(reply.as_bytes()).unwrap();
+                    // The request's head, a blank line, then its body.
+                    format!("{head}\r\n{}", String::from_utf8_lossy(&sink))
+                })
+                .collect()
         });
         (url, handle)
     }

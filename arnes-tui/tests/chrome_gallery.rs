@@ -350,3 +350,20 @@ fn a_secret_entry_draws_masked() {
     }
     assert!(screen(&frame(&st, 70, 14, t0)).contains("glm key (hidden)"));
 }
+
+#[test]
+fn queued_prompts_stack_above_the_prompt_oldest_first() {
+    let t0 = Instant::now();
+    let mut st = TuiState::new(Conversation::default(), "m");
+    settled(&mut st, t0);
+    st.input.queued = vec!["first".into(), "second".into()];
+    let s = screen(&frame(&st, 70, 14, t0));
+    let (_, a) = find(&frame(&st, 70, 14, t0), "first").expect("drawn");
+    let (_, b) = find(&frame(&st, 70, 14, t0), "second").expect("drawn");
+    assert!(a < b && s.contains("edits"), "{s}");
+    st.input.queued = (0..6).map(|i| format!("q{i}")).collect();
+    let s = screen(&frame(&st, 70, 14, t0));
+    assert!(s.contains("q2") && !s.contains("q3") && s.contains("+3 more"), "{s}");
+    let r = arnes_tui::layout::layout(70, 14, arnes_tui::chrome::demand(&st, t0));
+    assert_eq!(r.queue.h, 4);
+}

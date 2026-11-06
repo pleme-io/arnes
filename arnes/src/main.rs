@@ -618,6 +618,15 @@ struct TurnKit<'a> {
     /// The route's endpoint and whether it is the free local one, for the
     /// failure message.
     route: (String, bool),
+    /// Prompts sent while the turn runs (`turn.queued = next-tool`).
+    inbox: &'a arnes_loop::Inbox,
+}
+
+/// The queued prompts a running turn may take: every one before the first
+/// `/command`, which waits for the turn's end with what follows it, so order
+/// is kept.
+fn mid_turn_offer(queued: &[String]) -> Vec<String> {
+    queued.iter().take_while(|q| !q.trim_start().starts_with('/')).cloned().collect()
 }
 
 /// A failed turn in one line an operator can act on. An unreachable local
@@ -695,10 +704,10 @@ fn start_turn(state: &mut TuiState, kit: &TurnKit<'_>) -> tokio::task::JoinHandl
     // The turn owns a snapshot; the UI keeps rendering and reading keys, so
     // Esc / Ctrl-C can interrupt it (no lock held across the network call).
     let mut conversation = state.conversation.clone();
-    let (client, gate, tools, tx, ledger) = (kit.client.clone(), kit.gate.clone(), kit.tools.clone(), kit.tx.clone(), kit.ledger.clone());
+    let (client, gate, tools, tx, ledger, inbox) = (kit.client.clone(), kit.gate.clone(), kit.tools.clone(), kit.tx.clone(), kit.ledger.clone(), kit.inbox.clone());
     let observed = Observed { inner: gate, tx: kit.activity.clone() };
     tokio::spawn(async move {
-        let result = run_turn_recorded(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger)).await.map(|_| ()).map_err(|e| turn_failure(&e, &route));
+        let result = arnes_loop::run_turn_with(&client, &mut conversation, &tools, &observed, rounds, Some(&ledger), Some(&inbox)).await.map(|_| ()).map_err(|e| turn_failure(&e, &route));
         let _ = tx.send(TurnDone { conversation, result }).await;
     })
 }
@@ -1264,15 +1273,25 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
     term.flush()?;
     let mut dirty = true;
 
+    let inbox = arnes_loop::Inbox::default();
     macro_rules! kit {
         () => {
-            TurnKit { client: &live.client, gate: &live.gate, tools: &live.tools, ledger: &ledger, tx: &tx, activity: &act_tx, rounds: live.knobs.max_rounds, route: live.route() }
+            TurnKit { client: &live.client, gate: &live.gate, tools: &live.tools, ledger: &ledger, tx: &tx, activity: &act_tx, rounds: live.knobs.max_rounds, route: live.route(), inbox: &inbox }
         };
     }
 
     loop {
         // Prompts the reducer recorded since the last pass go to disk.
         prompt_history.record(&mut state.input);
+        // A running turn may take what is queued at its next tool boundary.
+        inbox.offer(if state.busy && live.knobs.queued_mid_turn { mid_turn_offer(&state.input.queued) } else { Vec::new() });
+        for sent in inbox.delivered() {
+            if let Some(i) = state.input.queued.iter().position(|q| *q == sent) {
+                state.input.queued.remove(i);
+            }
+            state.activity.note("the model has your message", false, Instant::now());
+            dirty = true;
+        }
         // Notices from anywhere in arnes (and its libraries' warnings).
         while let Ok((level, text)) = toasts.try_recv() {
             state.toast(level, text);
@@ -2556,6 +2575,14 @@ mod tests {
         assert!(system_prompt(&cfg, &skills).0.unwrap_or_default().contains("switch_model"));
         let off = ArnesConfig { context: arnes_config::ContextSection { route_facts: Some(false), ..Default::default() }, ..cfg };
         assert!(!system_prompt(&off, &skills).0.unwrap_or_default().contains("switch_model"), "configured off");
+    }
+
+    #[test]
+    fn a_turn_may_take_the_queue_up_to_the_first_command() {
+        let q = |v: &[&str]| v.iter().map(|s| (*s).to_owned()).collect::<Vec<_>>();
+        assert_eq!(mid_turn_offer(&q(&["a", "b"])), ["a", "b"]);
+        assert_eq!(mid_turn_offer(&q(&["a", " /model glm", "b"])), ["a"], "a command and what follows wait for the turn's end");
+        assert!(mid_turn_offer(&q(&["/clear"])).is_empty());
     }
 
     #[test]
