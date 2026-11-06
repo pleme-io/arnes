@@ -643,7 +643,7 @@ nested_or_flat! {
 /// route's override or its provider's). Absent is `Ok(None)` only for a
 /// provider that takes no key.
 fn read_key(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Result<Option<cofre_secret::Secret>, String> {
-    if let Some(path) = key_file_of(provider, file, var).as_ref() {
+    if let Some(path) = file {
         let raw = std::fs::read_to_string(path).map_err(|e| format!("reading api-key-file {}: {e}", path.display()))?;
         return cofre_secret::Secret::new(raw.trim()).map(Some).map_err(|_| format!("api-key-file {} is empty", path.display()));
     }
@@ -656,24 +656,7 @@ fn read_key(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Re
     }
 }
 
-/// The file a key is read from: the named one, else, while the env var is
-/// unset, the fleet's file for the provider when it exists.
-fn key_file_of(provider: Provider, file: Option<&PathBuf>, var: Option<&str>) -> Option<PathBuf> {
-    let fleet = provider.fleet_key_file().map(|f| arnes_blue::expand_home(std::path::Path::new(f)));
-    pick_key_file(file, var.unwrap_or(provider.key_env()), fleet)
-}
-
-fn pick_key_file(file: Option<&PathBuf>, var: &str, fleet: Option<PathBuf>) -> Option<PathBuf> {
-    file.cloned().or_else(|| fleet.filter(|f| std::env::var_os(var).is_none() && f.is_file()))
-}
-
 impl RouteDecl {
-    /// The file this route's key is read from, if any.
-    #[must_use]
-    pub fn key_file(&self) -> Option<PathBuf> {
-        Provider::parse(&self.provedor).ok().and_then(|p| key_file_of(p, self.api_key_file.as_ref(), self.key_env.as_deref()))
-    }
-
     /// # Errors
     /// An unknown provider, or a key the provider requires that cannot be read.
     pub fn resolve(&self) -> Result<Route, String> {
@@ -912,17 +895,6 @@ impl Provider {
         }
     }
 
-    /// Where the fleet places this provider's key (nix `lib/claude-providers.nix`
-    /// `keyPath`, a sops secret), read when no `:api-key-file` is named and
-    /// the env var is unset.
-    #[must_use]
-    pub const fn fleet_key_file(self) -> Option<&'static str> {
-        match self {
-            Self::Glm => Some("~/.config/zai/api-key"),
-            Self::DeepSeek | Self::Anthropic | Self::Local | Self::Messages => None,
-        }
-    }
-
     /// Whether a request without a key is refused. A local server started
     /// without `--api-key` takes none; one started with it reads the key
     /// from `:api-key-file` / `:key-env` like any other.
@@ -1035,7 +1007,7 @@ impl ArnesConfig {
     /// # Errors
     /// Names the file or env var that was tried.
     pub fn api_key(&self) -> Result<Option<cofre_secret::Secret>, String> {
-        self.key_file_allowed(self.primary_route().key_file().as_ref())?;
+        self.key_file_allowed(self.api_key_file.as_ref())?;
         read_key(self.provider()?, self.api_key_file.as_ref(), self.key_env.as_deref())
     }
 
@@ -1047,7 +1019,7 @@ impl ArnesConfig {
         let mut routes = Vec::new();
         let mut refused = Vec::new();
         for (i, decl) in self.fallbacks.iter().enumerate() {
-            match self.key_file_allowed(decl.key_file().as_ref()).and_then(|()| decl.resolve()) {
+            match self.key_file_allowed(decl.api_key_file.as_ref()).and_then(|()| decl.resolve()) {
                 Ok(r) => routes.push(r),
                 Err(e) => refused.push(format!("fallback {} ({}): {e}", i + 1, decl.provedor)),
             }
@@ -1219,9 +1191,8 @@ impl ArnesConfig {
     /// # Errors
     /// As [`RouteDecl::resolve`], or a key file outside `access.key-files`.
     pub fn primary(&self) -> Result<Route, String> {
-        let route = self.primary_route();
-        self.key_file_allowed(route.key_file().as_ref())?;
-        route.resolve()
+        self.key_file_allowed(self.api_key_file.as_ref())?;
+        self.primary_route().resolve()
     }
 
     /// `/model`: fallback `i` becomes the provider and the old provider
@@ -1830,25 +1801,6 @@ mod tests {
         assert_eq!(Provider::Glm.echo_rule(), EchoRule::Always);
         assert_eq!(Provider::Glm.key_env(), "ZAI_API_KEY");
         assert!(Provider::Glm.requires_key() && !Provider::Glm.honours_thinking_budget());
-    }
-
-    #[test]
-    fn the_fleet_key_file_is_read_only_when_nothing_names_a_key() {
-        let dir = tempfile::tempdir().unwrap();
-        let fleet = dir.path().join("api-key");
-        std::fs::write(&fleet, "zai-fleet\n").unwrap();
-        let named = dir.path().join("named");
-        let unset = "ARNES_TEST_GLM_KEY_UNSET";
-        assert_eq!(pick_key_file(None, unset, Some(fleet.clone())), Some(fleet.clone()));
-        assert_eq!(pick_key_file(Some(&named), unset, Some(fleet.clone())), Some(named), "a named file wins");
-        assert_eq!(pick_key_file(None, "PATH", Some(fleet.clone())), None, "a set env var wins over the fleet file");
-        assert_eq!(pick_key_file(None, unset, Some(dir.path().join("absent"))), None, "an absent fleet file is not named");
-        assert_eq!(pick_key_file(None, unset, None), None, "only a provider with a fleet file reads one");
-        assert_eq!(Provider::Glm.fleet_key_file(), Some("~/.config/zai/api-key"));
-        assert!(Provider::ALL.iter().filter(|p| p.fleet_key_file().is_some()).all(|p| p.requires_key()));
-        let decl = RouteDecl { provedor: "glm".into(), api_key_file: Some(fleet.clone()), ..RouteDecl::default() };
-        assert_eq!(decl.key_file(), Some(fleet));
-        assert_eq!(decl.resolve().unwrap().key.unwrap().expose(), "zai-fleet");
     }
 
     #[test]
