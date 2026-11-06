@@ -49,14 +49,162 @@ pub struct Builtins {
     /// Built-ins configured off by name (`:modules-off ("Bash")`): not served,
     /// not sent to the model, and their names free for a blue tool.
     off: Vec<String>,
+    /// Bash commands moved to the background, shared by every set the
+    /// session builds so a reload keeps them.
+    jobs: Jobs,
 }
 
-const NAMES: [&str; 6] = ["Bash", "Edit", "Glob", "Grep", "Read", "Write"];
+const NAMES: [&str; 8] = ["Bash", "BashOutput", "Edit", "Glob", "Grep", "KillShell", "Read", "Write"];
+
+/// Background Bash jobs: started with `run_in_background`, or moved there by
+/// the user (`Ctrl-B`) while running.
+#[derive(Debug, Clone, Default)]
+pub struct Jobs(std::sync::Arc<JobsInner>);
+
+#[derive(Debug, Default)]
+struct JobsInner {
+    table: std::sync::Mutex<JobTable>,
+    /// Wakes every Bash call in the foreground: move to the background.
+    detach: tokio::sync::Notify,
+    running: std::sync::atomic::AtomicUsize,
+}
+
+#[derive(Debug, Default)]
+struct JobTable {
+    next: u32,
+    jobs: std::collections::BTreeMap<u32, Job>,
+}
+
+#[derive(Debug)]
+struct Job {
+    command: String,
+    run: Run,
+    read: usize,
+}
+
+/// One running command: its output so far, its exit once known, and the
+/// way to stop it.
+#[derive(Debug, Clone)]
+struct Run {
+    out: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+    done: tokio::sync::watch::Receiver<Option<String>>,
+    kill: std::sync::Arc<tokio::sync::Notify>,
+}
+
+impl Run {
+    fn start(command: &str, root: &Path) -> Result<Self> {
+        use tokio::io::AsyncReadExt;
+        let mut child = tokio::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg(command)
+            .current_dir(root)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()?;
+        let out = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let pump = |mut r: Box<dyn tokio::io::AsyncRead + Unpin + Send>, out: std::sync::Arc<std::sync::Mutex<Vec<u8>>>| {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                while let Ok(n) = r.read(&mut buf).await {
+                    if n == 0 {
+                        break;
+                    }
+                    if let Ok(mut o) = out.lock() {
+                        o.extend_from_slice(&buf[..n]);
+                    }
+                }
+            })
+        };
+        let readers = [child.stdout.take().map(|s| pump(Box::new(s), out.clone())), child.stderr.take().map(|s| pump(Box::new(s), out.clone()))];
+        let (tx, done) = tokio::sync::watch::channel(None);
+        let kill = std::sync::Arc::new(tokio::sync::Notify::new());
+        let stop = kill.clone();
+        tokio::spawn(async move {
+            let code = tokio::select! {
+                status = child.wait() => status.ok().and_then(|s| s.code()).map_or_else(|| "killed by signal".to_owned(), |c| c.to_string()),
+                () = stop.notified() => {
+                    let _ = child.kill().await;
+                    "killed".to_owned()
+                }
+            };
+            for r in readers.into_iter().flatten() {
+                let _ = r.await;
+            }
+            let _ = tx.send(Some(code));
+        });
+        Ok(Self { out, done, kill })
+    }
+
+    fn exit(&self) -> Option<String> {
+        self.done.borrow().clone()
+    }
+
+    fn output_from(&self, from: usize) -> (String, usize) {
+        let o = self.out.lock().map(|o| o.clone()).unwrap_or_default();
+        (String::from_utf8_lossy(&o[from.min(o.len())..]).into_owned(), o.len())
+    }
+}
+
+impl Jobs {
+    /// Move every Bash command running in the foreground to the background.
+    /// False when none is running.
+    pub fn detach(&self) -> bool {
+        let running = self.0.running.load(std::sync::atomic::Ordering::SeqCst) > 0;
+        if running {
+            self.0.detach.notify_waiters();
+        }
+        running
+    }
+
+    fn adopt(&self, command: &str, run: Run) -> u32 {
+        let mut t = self.0.table.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        t.next += 1;
+        let id = t.next;
+        t.jobs.insert(id, Job { command: command.to_owned(), run, read: 0 });
+        id
+    }
+
+    fn output(&self, id: u32) -> Result<String> {
+        let mut t = self.0.table.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let ids: Vec<u32> = t.jobs.keys().copied().collect();
+        let job = t.jobs.get_mut(&id).ok_or_else(|| ToolError::Invalid(format!("no background job {id}; jobs: {ids:?}")))?;
+        let (new, end) = job.run.output_from(job.read);
+        job.read = end;
+        let state = job.run.exit().map_or_else(|| "[running]".to_owned(), |c| format!("[exit {c}]"));
+        Ok(cap(&format!("{}{new}\n{state}", if new.is_empty() { "(no new output)\n" } else { "" })))
+    }
+
+    fn kill(&self, id: u32) -> Result<String> {
+        let t = self.0.table.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let job = t.jobs.get(&id).ok_or_else(|| ToolError::Invalid(format!("no background job {id}")))?;
+        if job.run.exit().is_some() {
+            return Ok(format!("job {id} had already finished: {}", job.command));
+        }
+        job.run.kill.notify_one();
+        Ok(format!("job {id} stopped: {}", job.command))
+    }
+}
 
 impl Builtins {
     #[must_use]
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into(), off: Vec::new() }
+        Self { root: root.into(), off: Vec::new(), jobs: Jobs::default() }
+    }
+
+    /// The same set sharing `jobs` (the session's), so a rebuilt set keeps
+    /// the commands already in the background.
+    #[must_use]
+    pub fn with_jobs(mut self, jobs: Jobs) -> Self {
+        self.jobs = jobs;
+        self
+    }
+
+    /// The background jobs this set records into.
+    #[must_use]
+    pub fn jobs(&self) -> &Jobs {
+        &self.jobs
     }
 
     /// The same set with the built-ins named in `off` turned off. A name that
@@ -90,7 +238,8 @@ impl Builtins {
     pub fn read_only(name: &str) -> Option<bool> {
         match name {
             "Read" | "Glob" | "Grep" => Some(true),
-            "Write" | "Edit" | "Bash" => Some(false),
+            "Write" | "Edit" | "Bash" | "KillShell" => Some(false),
+            "BashOutput" => Some(true),
             _ => None,
         }
     }
@@ -104,10 +253,15 @@ impl Builtins {
             input_schema: ToolInputSchema(schema),
         };
         vec![
-            t("Bash", "Run a shell command in the working directory. Output (stdout+stderr) is capped; `timeout` is in milliseconds (default 120000, max 600000).", json!({
+            t("Bash", "Run a shell command in the working directory. Output (stdout+stderr) is capped; `timeout` is in milliseconds (default 120000, max 600000). `run_in_background: true` starts it as a job and returns its id at once; the user may also move a running command to the background (Ctrl-B). Read a job with BashOutput, stop it with KillShell.", json!({
                 "type": "object",
-                "properties": {"command": {"type": "string"}, "timeout": {"type": "integer"}, "description": {"type": "string"}},
+                "properties": {"command": {"type": "string"}, "timeout": {"type": "integer"}, "description": {"type": "string"}, "run_in_background": {"type": "boolean"}},
                 "required": ["command"]
+            })),
+            t("BashOutput", "The output a background Bash job wrote since the last read, then [running] or [exit N].", json!({
+                "type": "object",
+                "properties": {"job": {"type": "integer"}},
+                "required": ["job"]
             })),
             t("Edit", "Replace exact text in a file. `old_string` must match exactly once unless `replace_all` is true. Returns a unified diff.", json!({
                 "type": "object",
@@ -123,6 +277,11 @@ impl Builtins {
                 "type": "object",
                 "properties": {"pattern": {"type": "string"}, "path": {"type": "string"}, "glob": {"type": "string"}, "-i": {"type": "boolean"}},
                 "required": ["pattern"]
+            })),
+            t("KillShell", "Stop a background Bash job.", json!({
+                "type": "object",
+                "properties": {"job": {"type": "integer"}},
+                "required": ["job"]
             })),
             t("Read", "Read a text file with line numbers. `offset` (1-based line) and `limit` select a range (default 2000 lines).", json!({
                 "type": "object",
@@ -149,6 +308,8 @@ impl Builtins {
             "Glob" => self.glob(input),
             "Grep" => self.grep(input),
             "Bash" => self.bash(input).await,
+            "BashOutput" => self.jobs.output(job_field(input)?),
+            "KillShell" => self.jobs.kill(job_field(input)?),
             other => Err(ToolError::Invalid(format!("no built-in tool {other:?}"))),
         }
     }
@@ -281,32 +442,37 @@ impl Builtins {
     async fn bash(&self, input: &Value) -> Result<String> {
         let command = str_field(input, "command")?;
         let timeout = usize_field(input, "timeout").map_or(BASH_DEFAULT_TIMEOUT, |ms| Duration::from_millis(ms as u64)).min(BASH_MAX_TIMEOUT);
-        let child = tokio::process::Command::new("/bin/sh")
-            .arg("-c")
-            .arg(command)
-            .current_dir(&self.root)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()?;
-        match tokio::time::timeout(timeout, child.wait_with_output()).await {
-            Err(_) => Err(ToolError::Invalid(format!("command timed out after {}s and was killed", timeout.as_secs()))),
-            Ok(out) => {
-                let out = out?;
-                let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
-                let err = String::from_utf8_lossy(&out.stderr);
-                if !err.is_empty() {
-                    if !text.is_empty() && !text.ends_with('\n') {
-                        text.push('\n');
-                    }
-                    text.push_str(&err);
-                }
-                let code = out.status.code().map_or_else(|| "killed by signal".to_owned(), |c| c.to_string());
-                Ok(cap(&format!("{text}\n[exit {code}]")))
+        let run = Run::start(command, &self.root)?;
+        let moved = |id: u32, why: &str| format!("{why}: job {id}. Read its output with BashOutput {{\"job\": {id}}}; stop it with KillShell {{\"job\": {id}}}.");
+        if input.get("run_in_background").and_then(Value::as_bool) == Some(true) {
+            return Ok(moved(self.jobs.adopt(command, run), "started in the background"));
+        }
+        let inner = &self.jobs.0;
+        inner.running.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let mut done = run.done.clone();
+        let outcome = tokio::select! {
+            r = done.wait_for(Option::is_some) => Ok(r.map(|c| c.clone()).ok().flatten()),
+            () = tokio::time::sleep(timeout) => Err(()),
+            () = inner.detach.notified() => Ok(None),
+        };
+        inner.running.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        match outcome {
+            Err(()) => {
+                run.kill.notify_one();
+                Err(ToolError::Invalid(format!("command timed out after {}s and was killed", timeout.as_secs())))
+            }
+            Ok(Some(code)) => Ok(cap(&format!("{}\n[exit {code}]", run.output_from(0).0.trim_end_matches('\n')))),
+            Ok(None) => {
+                let (so_far, _) = run.output_from(0);
+                let id = self.jobs.adopt(command, run);
+                Ok(cap(&format!("{}\n{so_far}", moved(id, "the user moved it to the background (Ctrl-B) while it ran"))))
             }
         }
     }
+}
+
+fn job_field(input: &Value) -> Result<u32> {
+    input.get("job").and_then(Value::as_u64).and_then(|n| u32::try_from(n).ok()).ok_or_else(|| ToolError::Invalid("missing integer field \"job\"".into()))
 }
 
 fn str_field<'a>(input: &'a Value, key: &str) -> Result<&'a str> {
@@ -393,6 +559,60 @@ mod tests {
         assert!(g.contains("src/lib.rs") && !g.contains("secret.rs"), "{g}");
         let r = b.call("Grep", &json!({"pattern": "needle"})).await.unwrap();
         assert_eq!(r, "src/lib.rs:1:fn needle() {}");
+    }
+
+    /// Every read of job `id` until it reports an exit, within 20 s.
+    async fn until_done(b: &Builtins, id: u32) -> String {
+        let mut all = String::new();
+        for _ in 0..200 {
+            let out = b.call("BashOutput", &json!({"job": id})).await.unwrap();
+            all.push_str(&out);
+            if out.contains("[exit") {
+                return all;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        panic!("job {id} did not finish: {all}");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_background_job_is_read_and_stopped_by_its_id() {
+        let (_d, b) = tmp();
+        let started = b.call("Bash", &json!({"command": "echo one; sleep 0.2; echo two", "run_in_background": true})).await.unwrap();
+        assert!(started.contains("job 1"), "{started}");
+        let out = until_done(&b, 1).await;
+        assert!(out.contains("one") && out.contains("two") && out.ends_with("[exit 0]"), "{out}");
+        assert!(b.call("BashOutput", &json!({"job": 1})).await.unwrap().starts_with("(no new output)"), "each read returns only what is new");
+        b.call("Bash", &json!({"command": "sleep 30", "run_in_background": true})).await.unwrap();
+        assert!(b.call("KillShell", &json!({"job": 2})).await.unwrap().contains("stopped"));
+        assert!(until_done(&b, 2).await.ends_with("[exit killed]"));
+        assert!(b.call("BashOutput", &json!({"job": 9})).await.is_err());
+        assert_eq!(Builtins::read_only("BashOutput"), Some(true));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn ctrl_b_moves_a_running_command_to_the_background() {
+        let (_d, b) = tmp();
+        assert!(!b.jobs().detach(), "nothing running, nothing moved");
+        let jobs = b.jobs().clone();
+        let running = tokio::spawn({
+            let b = b.clone();
+            async move { b.call("Bash", &json!({"command": "echo early; sleep 1; echo late"})).await }
+        });
+        let mut detached = false;
+        for _ in 0..100 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            if jobs.detach() {
+                detached = true;
+                break;
+            }
+        }
+        assert!(detached, "the call registered as running");
+        let moved = running.await.unwrap().unwrap();
+        assert!(moved.contains("background (Ctrl-B)") && moved.contains("job 1"), "{moved}");
+        let rest = until_done(&b, 1).await;
+        let all = format!("{moved}{rest}");
+        assert!(all.contains("early") && all.contains("late") && rest.ends_with("[exit 0]"), "the job ran on: {all}");
     }
 
     #[tokio::test]

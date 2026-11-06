@@ -257,6 +257,12 @@ impl GatedDispatcher {
 
     /// Screen side-effecting built-ins with guardrail.
     #[must_use]
+    /// `Ctrl-B`: move the Bash command running in the foreground to the
+    /// background. False when none is running.
+    pub fn background(&self) -> bool {
+        self.builtins.as_ref().is_some_and(|b| b.jobs().detach())
+    }
+
     /// The kernel arms blue tools asked for since the last take, in order.
     pub fn take_held(&self) -> Vec<(String, String)> {
         self.held.lock().map(|mut h| std::mem::take(&mut *h)).unwrap_or_default()

@@ -91,6 +91,8 @@ it.
 | `Esc` | Interrupt the running turn, keeping partial work; close a dialog. | `app:interrupt` |
 | `Esc Esc` | With text: clear it into history as a draft. Empty: open rewind (T2). | `chat:clearToHistory` / `app:rewind` |
 | `Enter` | Submit. During a turn: queue the message. | `chat:submit` |
+| `Ctrl-Enter` | Send now: during a turn, interrupt it and send the message. | `chat:sendNow` |
+| `Ctrl-B` | During a turn: move the running Bash command to the background. Otherwise one character left. | `task:background` |
 | `Shift-Enter`, `Alt-Enter`, `\`+`Enter`, `Ctrl-J` | Insert a newline. | `chat:newline` |
 | `Up`/`Down`, `Ctrl-P`/`Ctrl-N` | Move within multi-line input; at the first or last row, walk history. | `history:previous/next` |
 | `Ctrl-R` | Reverse history search: the ranked fuzzy picker (`history.search = picker`, the fleet's shell `Ctrl-R` ranking) or reverse-i-search (`incremental`). History persists across sessions (`history.*`). | `history:search` |
@@ -106,7 +108,8 @@ it.
 ### 4.2 Readline editing (T0, in `egaku::TextArea`)
 
 - **Movement:** `Ctrl-A` / `Ctrl-E` (start / end of the logical line),
-  `Ctrl-B` / `Ctrl-F`, `Alt-B` / `Alt-F` (word motion).
+  `Ctrl-B` / `Ctrl-F` (`Ctrl-B` during a turn backgrounds the running Bash
+  command instead), `Alt-B` / `Alt-F` (word motion).
 - **Kill and yank:**
   - `Ctrl-K` kills to the end of the line; `Ctrl-U` kills to the start
     (and repeats across lines).
@@ -129,9 +132,15 @@ it.
   - `@` file mention picker (T4)
   - `!` bash mode (T4)
   - `#` memory (T4)
-- **Queueing.** Typing during a turn queues the message and shows
-  "Queued: N". `Up` from the first row takes a queued message back.
-  `Ctrl-Enter` sends now (T0 queues; T1 shows the count).
+- **Queueing (done).** Typing during a turn stacks the message above the
+  prompt (oldest first, three rows then `+N more`); the model receives it
+  after the next round's tool results (`turn.queued`), and it leaves the
+  stack. `Up` from the first row takes the newest back. `Ctrl-Enter` sends
+  now: it interrupts the turn and sends what is typed.
+- **Background (done).** `Ctrl-B` during a turn moves the running Bash
+  command to the background; the model gets its job id and reads it with
+  `BashOutput`, stops it with `KillShell`; `run_in_background` starts one
+  there.
 
 ### 4.4 Rendering (T1)
 

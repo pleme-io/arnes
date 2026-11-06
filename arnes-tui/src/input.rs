@@ -102,6 +102,8 @@ pub enum Effect {
     },
     /// Leave the live tail and scroll back through the conversation.
     Scrollback,
+    /// `Ctrl-B` during a turn: move the running Bash command to the background.
+    Background,
     /// What was typed in a secret entry ([`InputState::open_secret`]):
     /// never shown, never kept in history.
     Secret {
@@ -296,6 +298,15 @@ impl InputState {
                 self.history_next();
                 vec![]
             }
+            Action::SendNow => {
+                if self.masked.is_some() {
+                    return self.submit(busy);
+                }
+                let fx = self.submit(false);
+                if busy && fx.iter().any(|e| matches!(e, Effect::Submit(_))) { std::iter::once(Effect::Interrupt).chain(fx).collect() } else { fx }
+            }
+            Action::Background if busy => vec![Effect::Background],
+            Action::Background => self.apply(Action::Left, busy, now),
             Action::HistorySearch => {
                 match self.history_search {
                     HistorySearchStyle::Picker => self.open_history_picker(unix_now()),
@@ -829,6 +840,8 @@ impl InputState {
             | Action::CycleMode
             | Action::Scrollback
             | Action::Submit
+            | Action::SendNow
+            | Action::Background
             | Action::Newline
             | Action::ExternalEditor
             | Action::Stash
@@ -1191,6 +1204,21 @@ mod tests {
         i.apply(Action::HistoryPrevious, false, now);
         i.apply(Action::HistoryPrevious, false, now);
         assert_eq!(i.editor.text(), "from yesterday");
+    }
+
+    #[test]
+    fn ctrl_enter_sends_now_and_ctrl_b_backgrounds_only_during_a_turn() {
+        let now = t0();
+        let mut i = typed("stop and do this");
+        assert_eq!(i.apply(Action::SendNow, true, now), vec![Effect::Interrupt, Effect::Submit("stop and do this".into())]);
+        assert!(i.queued.is_empty(), "sent, not queued");
+        let mut idle = typed("plain");
+        assert_eq!(idle.apply(Action::SendNow, false, now), vec![Effect::Submit("plain".into())]);
+        assert!(InputState::new().apply(Action::SendNow, true, now).is_empty(), "nothing typed interrupts nothing");
+        let mut b = typed("ab");
+        assert_eq!(b.apply(Action::Background, true, now), vec![Effect::Background]);
+        assert!(b.apply(Action::Background, false, now).is_empty());
+        assert_eq!(b.editor.cursor().1, 1, "idle, Ctrl-B is still one character left");
     }
 
     #[test]

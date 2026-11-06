@@ -1570,6 +1570,13 @@ async fn run_tui(client: &AnthropicClient, cfg: &ArnesConfig, session: Session, 
                         turn_started = Some(Instant::now());
                         turn = Some(begin_turn(&mut state, &live, &kit!(), &prompt, &routed_tx));
                     }
+                    Effect::Background => {
+                        state.input.hint = Some(if live.gate.background() {
+                            "moved to the background; the model can read it with BashOutput".into()
+                        } else {
+                            "nothing to background: Ctrl-B moves a running Bash command".into()
+                        });
+                    }
                     Effect::Interrupt => {
                         if let Some(t) = turn.take() {
                             t.abort();
@@ -2329,7 +2336,14 @@ fn with_builtins(cfg: &ArnesConfig, gate: GatedDispatcher, skills: &Arc<arnes_to
         }
         g
     };
-    gate.with_builtins(arnes_tools::Builtins::new(root).with_off(&cfg.modules_off)).with_guard(guard)
+    gate.with_builtins(arnes_tools::Builtins::new(root).with_off(&cfg.modules_off).with_jobs(session_jobs())).with_guard(guard)
+}
+
+/// The session's background Bash jobs: one table every rebuilt tool set
+/// shares, so a reload keeps them.
+fn session_jobs() -> arnes_tools::Jobs {
+    static JOBS: std::sync::OnceLock<arnes_tools::Jobs> = std::sync::OnceLock::new();
+    JOBS.get_or_init(arnes_tools::Jobs::default).clone()
 }
 
 /// The primary provider's model catalogue, from the day-old cache when it

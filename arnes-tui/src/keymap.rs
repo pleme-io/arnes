@@ -32,6 +32,11 @@ pub enum Action {
     Scrollback,
     // ── chat ──
     Submit,
+    /// `Ctrl-Enter`: send now; during a turn, interrupt it and send this.
+    SendNow,
+    /// `Ctrl-B`: during a turn, move the running Bash command to the
+    /// background; otherwise one character left (the emacs binding).
+    Background,
     Newline,
     ExternalEditor,
     Stash,
@@ -58,7 +63,7 @@ pub enum Action {
 }
 
 impl Action {
-    pub const ALL: [Self; 30] = [
+    pub const ALL: [Self; 32] = [
         Self::Interrupt,
         Self::Exit,
         Self::Cancel,
@@ -68,6 +73,8 @@ impl Action {
         Self::CycleMode,
         Self::Scrollback,
         Self::Submit,
+        Self::SendNow,
+        Self::Background,
         Self::Newline,
         Self::ExternalEditor,
         Self::Stash,
@@ -110,6 +117,8 @@ impl Action {
             Self::CycleMode => "app:cycleMode",
             Self::Scrollback => "app:scrollback",
             Self::Submit => "chat:submit",
+            Self::SendNow => "chat:sendNow",
+            Self::Background => "task:background",
             Self::Newline => "chat:newline",
             Self::ExternalEditor => "chat:externalEditor",
             Self::Stash => "chat:stash",
@@ -150,6 +159,7 @@ pub const DEFAULT_BINDINGS: &[(&str, Action)] = &[
     ("pageup", Action::Scrollback),
     ("shift+up", Action::Scrollback),
     ("enter", Action::Submit),
+    ("ctrl+enter", Action::SendNow),
     ("shift+enter", Action::Newline),
     ("alt+enter", Action::Newline),
     ("ctrl+j", Action::Newline),
@@ -162,7 +172,7 @@ pub const DEFAULT_BINDINGS: &[(&str, Action)] = &[
     ("ctrl+n", Action::HistoryNext),
     ("ctrl+r", Action::HistorySearch),
     ("left", Action::Left),
-    ("ctrl+b", Action::Left),
+    ("ctrl+b", Action::Background),
     ("right", Action::Right),
     ("ctrl+f", Action::Right),
     ("alt+b", Action::WordLeft),
@@ -373,6 +383,8 @@ mod tests {
             ("ctrl+d", Action::Exit),
             ("escape", Action::Cancel),
             ("enter", Action::Submit),
+            ("ctrl+enter", Action::SendNow),
+            ("ctrl+b", Action::Background),
             ("shift+enter", Action::Newline),
             ("ctrl+j", Action::Newline),
             ("ctrl+w", Action::KillWordBack),

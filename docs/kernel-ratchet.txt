@@ -1,12 +1,12 @@
 host: arnes-blue 23
-rust: arnes 2818
+rust: arnes 2829
 rust: arnes-anthropic 592
 rust: arnes-blue 802
 rust: arnes-config 1899
 rust: arnes-core 282
-rust: arnes-loop 601
+rust: arnes-loop 604
 rust: arnes-mcp-client 811
 rust: arnes-store 569
-rust: arnes-tools 390
-rust: arnes-tui 3056
+rust: arnes-tools 529
+rust: arnes-tui 3075
 rust: arnes-vigy 197

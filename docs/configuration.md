@@ -170,7 +170,7 @@ defaults, then `bind` points chords at action ids. Each entry is refused alone
 
 | section | reads | action ids |
 |---|---|---|
-| `keys.prompt` | the prompt (`arnes_tui::Keymap`, Claude Code defaults) | `app:interrupt app:exit chat:cancel app:redraw app:toggleTranscript chat:thinkingToggle app:cycleMode app:scrollback chat:submit chat:newline chat:externalEditor chat:stash history:previous history:next history:search edit:left edit:right edit:wordLeft edit:wordRight edit:lineStart edit:lineEnd edit:deleteBack edit:deleteForward edit:killToEnd edit:killToStart edit:killWordBack edit:killWordForward edit:yank edit:yankPop edit:undo` |
+| `keys.prompt` | the prompt (`arnes_tui::Keymap`, Claude Code defaults) | `app:interrupt app:exit chat:cancel app:redraw app:toggleTranscript chat:thinkingToggle app:cycleMode app:scrollback chat:submit chat:sendNow task:background chat:newline chat:externalEditor chat:stash history:previous history:next history:search edit:left edit:right edit:wordLeft edit:wordRight edit:lineStart edit:lineEnd edit:deleteBack edit:deleteForward edit:killToEnd edit:killToStart edit:killWordBack edit:killWordForward edit:yank edit:yankPop edit:undo` |
 | `keys.nav.menu` | help, panels, `/mcp`, the approval question, the scrollback (`egaku::NavKeymap::menu`) | `nav:down nav:up nav:top nav:bottom nav:halfPageDown nav:halfPageUp nav:pageDown nav:pageUp nav:viewTop nav:viewMiddle nav:viewBottom nav:search nav:searchNext nav:searchPrev nav:open nav:back nav:dismiss nav:close nav:yank` |
 | `keys.nav.filter` | pickers, where letters filter (`NavKeymap::filter`) | the same `nav:*` ids |
 

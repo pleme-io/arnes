@@ -27,6 +27,7 @@ def exports()
       %w[bind app:scrollback pageup],
       %w[bind app:scrollback shift+up],
       %w[bind chat:submit enter],
+      %w[bind chat:sendNow ctrl+enter],
       %w[bind chat:newline shift+enter],
       %w[bind chat:newline alt+enter],
       %w[bind chat:newline ctrl+j],
@@ -39,7 +40,7 @@ def exports()
       %w[bind history:next ctrl+n],
       %w[bind history:search ctrl+r],
       %w[bind edit:left left],
-      %w[bind edit:left ctrl+b],
+      %w[bind task:background ctrl+b],
       %w[bind edit:right right],
       %w[bind edit:right ctrl+f],
       %w[bind edit:wordLeft alt+b],
@@ -68,7 +69,7 @@ end
 
 test "every binding is a bind row with an action id and a chord"
   rs = rows(exports)
-  assert length(rs) == 45
+  assert length(rs) == 46
   assert every((k) -> k == "bind", column(rs, 0))
   assert every((a) -> includes(a, ":"), column(rs, 1))
   assert first(rs) == %w[bind app:interrupt ctrl+c]
