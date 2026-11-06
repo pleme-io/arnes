@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "cargo_lock_sha256": "2b5a01f54e1869f8221fab0e7f1a6b99dbf0d9f8f30e6a2a7f16a1ee104e8f3c",
+  "cargo_lock_sha256": "6b538eb5ba42e3ef52e345313e29d342992afbd610d35ad89efe2b522904f72d",
   "manifest_sha256": {
     "Cargo.toml": "ee8996a4f7ea512f5fe5fd52087a7e854e3cf9a68824a77a2508d79382fd2260",
     "arnes-anthropic/Cargo.toml": "d7c210ea90ef1e2d2000a88c9f3580125ff7fff62476835e3b41aa70ab2760e8",
@@ -1079,7 +1079,7 @@
           },
           {
             "name": "guardrail",
-            "package_key": "guardrail-0.1.9-87ae09463cd6b9119c6b5e9ab9956230ef150e7f",
+            "package_key": "guardrail-0.1.26-0a0e3035450b7afa1b5247f13e1dbddffe9041fa",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -2191,6 +2191,22 @@
         "build_dependencies": [],
         "features": []
       },
+      "block-buffer-0.12.1": {
+        "runtime_dependencies": [
+          {
+            "name": "hybrid_array",
+            "package_key": "hybrid-array-0.4.15",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "blue-lang-bidama-0.0.151-df04aecfbec7f2fcafc8cd43646d97d99a441617": {
         "runtime_dependencies": [
           {
@@ -3166,6 +3182,11 @@
         "build_dependencies": [],
         "features": []
       },
+      "const-oid-0.10.2": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
       "const-oid-0.9.6": {
         "runtime_dependencies": [],
         "build_dependencies": [],
@@ -3398,6 +3419,22 @@
         "features": [
           "std"
         ]
+      },
+      "crypto-common-0.2.2": {
+        "runtime_dependencies": [
+          {
+            "name": "hybrid_array",
+            "package_key": "hybrid-array-0.4.15",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
       },
       "darling-0.20.11": {
         "runtime_dependencies": [
@@ -3849,6 +3886,47 @@
           "oid",
           "std",
           "subtle"
+        ]
+      },
+      "digest-0.11.3": {
+        "runtime_dependencies": [
+          {
+            "name": "block_buffer",
+            "package_key": "block-buffer-0.12.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "const_oid",
+            "package_key": "const-oid-0.10.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": true,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "common",
+            "package_key": "crypto-common-0.2.2",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "block-api",
+          "default",
+          "oid"
         ]
       },
       "displaydoc-0.2.7": {
@@ -5904,7 +5982,7 @@
           "log"
         ]
       },
-      "guardrail-0.1.9-87ae09463cd6b9119c6b5e9ab9956230ef150e7f": {
+      "guardrail-0.1.26-0a0e3035450b7afa1b5247f13e1dbddffe9041fa": {
         "runtime_dependencies": [
           {
             "name": "anyhow",
@@ -5930,7 +6008,17 @@
           },
           {
             "name": "hayai",
-            "package_key": "hayai-0.1.2",
+            "package_key": "hayai-0.1.4",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "hex",
+            "package_key": "hex-0.4.3",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -5981,8 +6069,18 @@
             "tree": "target"
           },
           {
-            "name": "serde_yaml",
-            "package_key": "serde_yaml-0.9.34+deprecated",
+            "name": "serde_norway",
+            "package_key": "serde_norway-0.9.42",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "sha2",
+            "package_key": "sha2-0.11.1",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -6075,11 +6173,31 @@
         "build_dependencies": [],
         "features": []
       },
-      "hayai-0.1.2": {
+      "hayai-0.1.4": {
         "runtime_dependencies": [
+          {
+            "name": "aho_corasick",
+            "package_key": "aho-corasick-1.1.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
           {
             "name": "regex",
             "package_key": "regex-1.13.1",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "regex_syntax",
+            "package_key": "regex-syntax-0.8.11",
             "kind": "normal",
             "features": [],
             "uses_default_features": true,
@@ -6310,6 +6428,24 @@
           "default",
           "std"
         ]
+      },
+      "hybrid-array-0.4.15": {
+        "runtime_dependencies": [
+          {
+            "name": "typenum",
+            "package_key": "typenum-1.20.1",
+            "kind": "normal",
+            "features": [
+              "const-generics"
+            ],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
       },
       "hyper-1.11.0": {
         "runtime_dependencies": [
@@ -12412,6 +12548,62 @@
           "std"
         ]
       },
+      "serde_norway-0.9.42": {
+        "runtime_dependencies": [
+          {
+            "name": "indexmap",
+            "package_key": "indexmap-2.14.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "itoa",
+            "package_key": "itoa-1.0.18",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "ryu",
+            "package_key": "ryu-1.0.23",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "serde",
+            "package_key": "serde-1.0.229",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "unsafe_libyaml_norway",
+            "package_key": "unsafe-libyaml-norway-0.2.15",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": []
+      },
       "serde_spanned-0.6.9": {
         "runtime_dependencies": [
           {
@@ -12663,6 +12855,46 @@
         "features": [
           "default",
           "std"
+        ]
+      },
+      "sha2-0.11.1": {
+        "runtime_dependencies": [
+          {
+            "name": "cfg_if",
+            "package_key": "cfg-if-1.0.5",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          },
+          {
+            "name": "cpufeatures",
+            "package_key": "cpufeatures-0.3.0",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": "cfg(any(target_arch = \"aarch64\", target_arch = \"x86_64\", target_arch = \"x86\"))",
+            "tree": "target"
+          },
+          {
+            "name": "digest",
+            "package_key": "digest-0.11.3",
+            "kind": "normal",
+            "features": [],
+            "uses_default_features": true,
+            "optional": false,
+            "target": null,
+            "tree": "target"
+          }
+        ],
+        "build_dependencies": [],
+        "features": [
+          "alloc",
+          "default",
+          "oid"
         ]
       },
       "sharded-slab-0.1.7": {
@@ -16912,7 +17144,9 @@
       "typenum-1.20.1": {
         "runtime_dependencies": [],
         "build_dependencies": [],
-        "features": []
+        "features": [
+          "const-generics"
+        ]
       },
       "uncased-0.9.10": {
         "runtime_dependencies": [],
@@ -17054,6 +17288,11 @@
         "features": []
       },
       "unsafe-libyaml-0.2.11": {
+        "runtime_dependencies": [],
+        "build_dependencies": [],
+        "features": []
+      },
+      "unsafe-libyaml-norway-0.2.15": {
         "runtime_dependencies": [],
         "build_dependencies": [],
         "features": []
@@ -18630,6 +18869,52 @@
             "build_dependencies": [],
             "features": []
           },
+          "cpufeatures-0.3.0": {
+            "runtime_dependencies": [
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"android\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
           "curve25519-dalek-4.1.3": {
             "runtime_dependencies": [
               {
@@ -19302,6 +19587,52 @@
                 "uses_default_features": false,
                 "optional": false,
                 "target": "aarch64-linux-android",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
+          "cpufeatures-0.3.0": {
+            "runtime_dependencies": [
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"android\"))",
                 "tree": "target"
               },
               {
@@ -20134,6 +20465,52 @@
                 "uses_default_features": false,
                 "optional": false,
                 "target": "aarch64-linux-android",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_vendor = \"apple\"))",
+                "tree": "target"
+              },
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"loongarch64\", target_os = \"linux\"))",
+                "tree": "target"
+              }
+            ],
+            "build_dependencies": [],
+            "features": []
+          },
+          "cpufeatures-0.3.0": {
+            "runtime_dependencies": [
+              {
+                "name": "libc",
+                "package_key": "libc-0.2.191",
+                "kind": "normal",
+                "features": [],
+                "uses_default_features": false,
+                "optional": false,
+                "target": "cfg(all(target_arch = \"aarch64\", target_os = \"android\"))",
                 "tree": "target"
               },
               {
@@ -23272,6 +23649,9 @@
     "block-buffer-0.10.4": {
       "edition": "2018"
     },
+    "block-buffer-0.12.1": {
+      "edition": "2024"
+    },
     "blue-lang-bidama-0.0.151-df04aecfbec7f2fcafc8cd43646d97d99a441617": {
       "edition": "2021"
     },
@@ -23373,6 +23753,9 @@
     "colorchoice-1.0.5": {
       "edition": "2021"
     },
+    "const-oid-0.10.2": {
+      "edition": "2024"
+    },
     "const-oid-0.9.6": {
       "edition": "2021"
     },
@@ -23417,6 +23800,9 @@
     },
     "crypto-common-0.1.7": {
       "edition": "2018"
+    },
+    "crypto-common-0.2.2": {
+      "edition": "2024"
     },
     "curve25519-dalek-4.1.3": {
       "edition": "2021",
@@ -23464,6 +23850,9 @@
     },
     "digest-0.10.7": {
       "edition": "2018"
+    },
+    "digest-0.11.3": {
+      "edition": "2024"
     },
     "displaydoc-0.2.7": {
       "edition": "2021",
@@ -23626,7 +24015,7 @@
     "globset-0.4.20": {
       "edition": "2024"
     },
-    "guardrail-0.1.9-87ae09463cd6b9119c6b5e9ab9956230ef150e7f": {
+    "guardrail-0.1.26-0a0e3035450b7afa1b5247f13e1dbddffe9041fa": {
       "edition": "2024",
       "binaries": [
         {
@@ -23650,7 +24039,7 @@
     "hashlink-0.10.0": {
       "edition": "2018"
     },
-    "hayai-0.1.2": {
+    "hayai-0.1.4": {
       "edition": "2024"
     },
     "heck-0.4.1": {
@@ -23686,6 +24075,9 @@
     "httparse-1.10.1": {
       "edition": "2018",
       "build_script": "build.rs"
+    },
+    "hybrid-array-0.4.15": {
+      "edition": "2024"
     },
     "hyper-1.11.0": {
       "edition": "2021"
@@ -24232,6 +24624,9 @@
       "edition": "2021",
       "build_script": "build.rs"
     },
+    "serde_norway-0.9.42": {
+      "edition": "2021"
+    },
     "serde_spanned-0.6.9": {
       "edition": "2021"
     },
@@ -24249,6 +24644,9 @@
     },
     "sha2-0.10.9": {
       "edition": "2018"
+    },
+    "sha2-0.11.1": {
+      "edition": "2024"
     },
     "sharded-slab-0.1.7": {
       "edition": "2018"
@@ -24543,6 +24941,19 @@
         }
       ]
     },
+    "unsafe-libyaml-norway-0.2.15": {
+      "edition": "2021",
+      "binaries": [
+        {
+          "name": "run-emitter-test-suite",
+          "path": "src/bin/run-emitter-test-suite.rs"
+        },
+        {
+          "name": "run-parser-test-suite",
+          "path": "src/bin/run-parser-test-suite.rs"
+        }
+      ]
+    },
     "unsoku-0.1.85": {
       "edition": "2024"
     },
@@ -24670,7 +25081,7 @@
     "blue-lang-runtime-0.0.151-df04aecfbec7f2fcafc8cd43646d97d99a441617": "sha256-/biXpgkGot9q0YgW1LI1j3/MKUqJ0dEpPhCSJaZJ/dM=",
     "blue-lang-syntax-0.0.151-df04aecfbec7f2fcafc8cd43646d97d99a441617": "sha256-/biXpgkGot9q0YgW1LI1j3/MKUqJ0dEpPhCSJaZJ/dM=",
     "blue-lang-waku-0.0.151-df04aecfbec7f2fcafc8cd43646d97d99a441617": "sha256-/biXpgkGot9q0YgW1LI1j3/MKUqJ0dEpPhCSJaZJ/dM=",
-    "guardrail-0.1.9-87ae09463cd6b9119c6b5e9ab9956230ef150e7f": "sha256-Nkyqib7iBpeKfVhZwD8Pj4JU31MQknS2twp4AoRYnDk=",
+    "guardrail-0.1.26-0a0e3035450b7afa1b5247f13e1dbddffe9041fa": "sha256-HwGuLQjFPpN4+v7490QTiNn3eY+bObMumwz7aida58s=",
     "vigy-eval-0.1.7-af73a190f19600414f69966fa4f9a59bac3ce6ca": "sha256-Q3LiyR9WFg82GvAkpePszDZDDq+LDYotxqlmpKIVCcE=",
     "vigy-runtime-0.1.7-af73a190f19600414f69966fa4f9a59bac3ce6ca": "sha256-Q3LiyR9WFg82GvAkpePszDZDDq+LDYotxqlmpKIVCcE=",
     "vigy-store-0.1.7-af73a190f19600414f69966fa4f9a59bac3ce6ca": "sha256-Q3LiyR9WFg82GvAkpePszDZDDq+LDYotxqlmpKIVCcE=",
