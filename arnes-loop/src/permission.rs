@@ -654,7 +654,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("t.b");
         std::fs::write(&path, "def echo(input)\n  json_get(json_parse(input), :text)\nend\n").unwrap();
-        let spec = |name: &str, read_only| arnes_blue::ToolSpec { name: name.into(), description: String::new(), schema: None, read_only, script: arnes_blue::Script::new(&path, "echo") };
+        let spec = |name: &str, read_only| arnes_blue::ToolSpec { name: name.into(), description: String::new(), schema: None, read_only, pure: false, script: arnes_blue::Script::new(&path, "echo") };
         let approver = Arc::new(Scripted(Verdict::Deny("no".into()), Mutex::new(vec![])));
         let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default()).with_blue_tools(arnes_blue::Tools::new(vec![spec("peek", true), spec("poke", false)]));
         let out = g.dispatch("peek", &serde_json::json!({"text": "hi"})).await.unwrap();
@@ -671,7 +671,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("s.b");
         std::fs::write(&path, "def go(input)\n  arnes_route_switch(json_get(json_parse(input), :arg))\n  \"moving\"\nend\n").unwrap();
-        let spec = arnes_blue::ToolSpec { name: "switch_model".into(), description: String::new(), schema: None, read_only: false, script: arnes_blue::Script::new(&path, "go") };
+        let spec = arnes_blue::ToolSpec { name: "switch_model".into(), description: String::new(), schema: None, read_only: false, pure: false, script: arnes_blue::Script::new(&path, "go") };
         let approver = Arc::new(Scripted(Verdict::Allow, Mutex::new(vec![])));
         let g = GatedDispatcher::new(pool(), approver.clone(), Policy::default()).with_blue_tools(arnes_blue::Tools::new(vec![spec]));
         assert_eq!(g.dispatch("switch_model", &serde_json::json!({"arg": "glm"})).await.unwrap(), "moving");
@@ -684,6 +684,7 @@ mod tests {
                 description: String::new(),
                 schema: None,
                 read_only: false,
+                pure: false,
                 script: arnes_blue::Script::new(&path, "go"),
             }]));
         assert!(denied.dispatch("switch_model", &serde_json::json!({"arg": "glm"})).await.is_err());

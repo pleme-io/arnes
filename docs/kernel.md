@@ -46,6 +46,7 @@ capability-scopes bidamas, and reloads them.
 | config loading, hot reload, routes as data (the `messages` provider, route facts); the typed reading of provider facts (`providers.rs`: each `provider <name> <fact> <value>` row a hosted bidama declares, `teikyou` shipping the five; a bad fact refused alone, an empty table refused whole; the table swapped in place when the hosted bidamas reload) | `arnes-config`, shikumi, `arnes-blue` (`Registry::providers`) | the declaration layer: a fact reaches the wire, so it is parsed once at the border, and a new provider is rows, not Rust |
 | login: `/login <provider>` takes the key in a masked entry (never drawn, never in history) and writes it 0600 under `$XDG_STATE_HOME/arnes/keys`, read after `:api-key-file` and `key-env` | `arnes-tui` (`open_secret`), `arnes-store` (`write_private`), `arnes-config` (`store_login_key`) | a secret at the tty and on disk; blue never sees it |
 | the route a tool asks for: a blue tool's `arnes_route_switch` is held by the gate and run by the kernel's model arm when the turn ends, after the user approved the call | `arnes-loop` (`take_held`), `arnes/src/main.rs` | a turn's conversation is the kernel's; a switch mid-turn would split it |
+| pure tools: a `pure-tool` export runs with no store and is refused when it asks for an effect, so the gate may run it unasked; a `schema` row gives a hosted tool its input schema | `arnes-blue` (`ToolSpec::pure`, `Tools::call`) | the gate trusts the purity, so the kernel enforces it; a bidama may not grant itself an unasked run |
 | vigy runtime embedding | `arnes-vigy`, vigy-runtime | the scheduler is vigy's |
 
 ## 2. The bidamas
@@ -67,6 +68,7 @@ found while writing one moves into blue's public `bidamas/` instead (§3).
 | `teikyou` | 提供 | the model providers, one `provider <name> <fact> <value>` export per fact (endpoint, model, key, auth, echo, catalogue, thinking budget, peak hours); a new provider is rows, not a build; and the `switch_model` tool (a hosted `tool` export) that moves the session when the user asks the model | **landed** |
 | routes | | route ranking, start-on-free policy, `/model` | H6 |
 | tools | | declaring the built-in tools, blue tools | H10 |
+| `yarukoto` | やること | the `TodoWrite` tool: the model sends its whole task list, in the shape Claude Code, opencode and deepagents use; the answer is the list drawn back as a checklist with a count (recitation, `docs/glm.md` row 12), a list with two items in progress or a bad status refused with the rule. A `pure-tool` with its own `schema` row, so it runs unasked | **landed** |
 | `sanshou` | 参照 | `@path` mentions attached to a prompt, a before-submit hook | **landed** |
 | `kenkou` | 健康 | the MCP health vigy (`vigy mcp-health tick 30000`) and the `mcp` segment, hosted by default: a tick reads the health scheduler's facts and probes nothing (docs/profiles.md) | **landed** |
 | theme | | any bidama with `color <slot> <#RRGGBB>` rows, hosted with `:bidamas`, sets palette slots over the fleet theme `:tema` names; the palette then feeds `egaku_term::markdown` | mechanism landed (H12); no theme ships by default |
@@ -120,6 +122,7 @@ skill). Kept current each rung.
 | `kenban` | `yushutsu`, `ronri`, `moji` (`includes`) | the bindings as rows; tests over them |
 | `kenkou` | `yushutsu`, `deeta` (`get_str`, `get_int`) | total JSON reads of each probe |
 | `teikyou` | `yushutsu`, `ronri` (`every`), `retsu` (`first`, `last`) | the provider table as rows; tests over them |
+| `yarukoto` | `yushutsu` (`render`, `rows`), `deeta` (`get_str`, `is_doc`), `ronri` (`count_if`, `every`) | total reads of the model's JSON; the rules over the list |
 | `sanshou` | `yushutsu`, `moji` (`words`, `starts_with`, `ends_with`, `take_chars`, `drop_chars`, `includes`), `retsu` (`contains`, `push`) | tokenising and de-duplicating mentions |
 
 blue's whole standard distribution is on every hosted bidama's path at run
@@ -161,7 +164,11 @@ a successful call, so a bidama that raises changes nothing.
 and the kind is declared in its export: a `command` may use every command
 capability; a `segment` returns text, and one that asks for any effect is
 refused with nothing applied. A hook or a tool inside a turn cannot clear,
-exit or open a panel (a named warning). New kinds (hook, vigy, keymap, route)
+exit or open a panel (a named warning). A `pure-tool` reads only its input:
+it runs with no store, a call that asks for any effect is refused, and so the
+gate treats it as read-only and runs it unasked. A `schema <tool> <JSON
+object>` row gives a hosted tool its input schema; without one it takes
+`arg`. New kinds (hook, vigy, keymap, route)
 arrive with their rungs, each with its own scope.
 
 **Invariants.** A bidama never paints (regions cannot overlap). Every tool
@@ -195,6 +202,7 @@ each red once) and committed alone.
 | H11 | a `vigy` export kind; hosted vigies run as `bidama:<package>` scripts on the shared runtime beside declared ones, a declared vigy winning its name; MCP health moved into `kenkou` over `deeta`, and `examples/vigy/mcp-health.b` reuses it | done (`b9c2260`) |
 | H12 | a `color` export kind: `(slot, #RRGGBB)` rows over the fleet palette, each bad row refused alone, applied at start and on reload | done (`a622691`) |
 | H13 | arnes on namespaced blue: every bidama defines bare names (`meirei::clear`), `exports()` names them, and the kernel calls `<bidama>::<function>` through one `run_bidama` (blue's `Hosted::call` reads a qualified name); each host-calling definition carries `# waive B0001: arnes host call` so `blue test` still checks it outside arnes; the six bidamas move to 0.2.0 | done |
+| H14 | the `pure-tool` and `schema` export kinds (`ToolSpec::pure`: no store, an effect refuses the call, read-only to the gate); `yarukoto`'s `TodoWrite` hosted by default over them | done |
 
 A word blue lacks while porting goes into blue or a public bidama, not into
 arnes.

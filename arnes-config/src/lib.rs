@@ -489,6 +489,7 @@ impl ToolDecl {
             description: self.description.clone(),
             schema,
             read_only: self.read_only.unwrap_or(false),
+            pure: false,
             script: arnes_blue::Script::new(self.blue.clone(), self.r#fn.clone()),
         })
     }

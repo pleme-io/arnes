@@ -1,0 +1,4 @@
+package("yarukoto", "0.1.0")
+needs("deeta", "^0.1")
+needs("ronri", "^0.1")
+needs("yushutsu", "^0.2")

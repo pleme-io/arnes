@@ -231,7 +231,7 @@ scheduler's facts.
 | `modules_off` | none | turned off by name: hosted bidama entries (commands, segments), a hosted bidama's key bindings (`kenban`), or a built-in tool (`Bash`), whose name a blue tool may then take (docs/kernel.md) |
 | `kernel_fallback` | off | serve a module that is off from its Rust twin |
 | `module_budget_ms` | 250 | wall-clock budget for one blue command or segment call |
-| `bidamas` | none | bidamas to host beside `meirei` and `joutai`, by name; re-read on reload |
+| `bidamas` | none | bidamas to host beside arnes's own (`meirei`, `joutai`, `kenban`, `sanshou`, `kenkou`, `teikyou`, `yarukoto`), by name; re-read on reload. `modules-off ("yarukoto")` stops serving `TodoWrite` |
 | `turn.max_rounds` | 16 (1..=256) | most model calls in one turn |
 | `turn.stream` | on | each request streams (server-sent events) and the reply is drawn as it arrives; the assembled message is the one a plain call returns, so retries, fallbacks and the ledger are unchanged, and a server that answers with plain JSON is read whole. off: each reply appears whole |
 | `turn.loop_nudge` | 3 (0..=20) | the same tool call (name and input) made this many times in one turn adds a note after that round's results: it answers the same way, so change the approach or say what blocks you. 0: never |

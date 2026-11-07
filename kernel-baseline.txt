@@ -13,10 +13,10 @@ host: arnes-blue 24
 rust: arnes 2907
 # provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches, a scripted provider for multi-call turn tests (testing::scripted_server), the server-sent-event stream assembled into the same message (stream::Assembler), a spent balance or quota judged exhausted and failed over unretried
 rust: arnes-anthropic 741
-# the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships, the provider export kind, the hosted tool kind, the compact arm
-rust: arnes-blue 805
-# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider, ui.wheel and ui.wheel-lines, history.walk, turn.queued, turn.stream, turn.compact, turn.loop-nudge
-rust: arnes-config 1912
+# the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships, the provider export kind, the hosted tool kind, the compact arm, the pure-tool kind (no store, an effect refuses the call: a purity the gate trusts, so a bidama may not grant it itself) and a hosted tool's schema row
+rust: arnes-blue 823
+# configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider, ui.wheel and ui.wheel-lines, history.walk, turn.queued, turn.stream, turn.compact, turn.loop-nudge, a declared tool is never pure
+rust: arnes-config 1913
 # conversation and usage types the kernel crates share
 rust: arnes-core 282
 # the tool loop, the permission gate a bidama may veto but never grant, the ledger of the route that served, each provider's peak hours read from its declared facts, the route switch a tool asks for, held until its turn ends, the inbox a running turn drains at each tool boundary, Ctrl-B reaching the running Bash, each finished round checkpointed for the UI and for an interrupt, compaction: the cut, the summary call, the overflow verdict, read-only calls of one reply run together, the loop note on a repeated call

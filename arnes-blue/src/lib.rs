@@ -604,6 +604,7 @@ pub mod bidamas {
         ("yushutsu", &[("bidamas/yushutsu/yushutsu.b", include_str!("../../bidamas/yushutsu/yushutsu.b"))]),
         ("wariate", &[("bidamas/wariate/wariate.b", include_str!("../../bidamas/wariate/wariate.b"))]),
         ("teikyou", &[("bidamas/teikyou/teikyou.b", include_str!("../../bidamas/teikyou/teikyou.b"))]),
+        ("yarukoto", &[("bidamas/yarukoto/yarukoto.b", include_str!("../../bidamas/yarukoto/yarukoto.b"))]),
     ];
 
     /// A script path naming a hosted bidama instead of a file:
@@ -615,7 +616,7 @@ pub mod bidamas {
     pub const KERNEL_TWINS: &[&str] = &["clear", "compact", "exit", "help", "login", "mcp", "mode", "model", "notices", "profile", "resume", "vigy", "vim"];
 
     /// The bidamas arnes hosts when the config names no others.
-    pub const DEFAULT_HOSTED: &[&str] = &["meirei", "joutai", "kenban", "sanshou", "kenkou", "teikyou"];
+    pub const DEFAULT_HOSTED: &[&str] = &["meirei", "joutai", "kenban", "sanshou", "kenkou", "teikyou", "yarukoto"];
 
     /// What a hosted bidama exports.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -637,13 +638,20 @@ pub mod bidamas {
         /// A provider fact: `provider <name> <fact> <value>`, data only.
         Provider,
         /// A tool the model may call: `tool <name> <function> <description>`.
-        /// Its input is one string, `arg`; it is never read-only, so the
-        /// permission gate asks before it runs.
+        /// Its input is one string, `arg`, unless a `schema` row names it; it
+        /// is never read-only, so the permission gate asks before it runs.
         Tool,
+        /// A pure tool: `pure-tool <name> <function> <description>`. It reads
+        /// only its input: no store, and an effect refuses the call. So the
+        /// gate treats it as read-only and it runs unasked.
+        PureTool,
+        /// A hosted tool's input schema: `schema <tool> <JSON object>`, the
+        /// rest of the line, data only. A tool without one takes `arg`.
+        Schema,
     }
 
     impl Kind {
-        const ALL: [(&'static str, Self); 8] = [
+        const ALL: [(&'static str, Self); 10] = [
             ("command", Self::Command),
             ("segment", Self::Segment),
             ("bind", Self::Bind),
@@ -652,6 +660,8 @@ pub mod bidamas {
             ("hook", Self::Hook),
             ("provider", Self::Provider),
             ("tool", Self::Tool),
+            ("pure-tool", Self::PureTool),
+            ("schema", Self::Schema),
         ];
     }
 
@@ -675,18 +685,20 @@ pub mod bidamas {
             let mut f = line.trim().splitn(4, ' ');
             let (kind, name, function, description) = (f.next(), f.next(), f.next(), f.next().unwrap_or(""));
             let Some(kind) = kind.and_then(|k| Kind::ALL.iter().find(|(n, _)| *n == k).map(|(_, k)| *k)) else {
-                refused.push(format!("{package} export {}: the kind is one of command, segment, bind, vigy, color, hook, provider", i + 1));
+                refused.push(format!("{package} export {}: the kind is one of {}", i + 1, Kind::ALL.map(|(n, _)| n).join(", ")));
                 continue;
             };
-            if kind == Kind::Bind {
-                // `bind <action> <chord>`: the chord is the rest of the line,
-                // since a two-key chord has a space in it.
+            if matches!(kind, Kind::Bind | Kind::Schema) {
+                // `bind <action> <chord>` and `schema <tool> <JSON>`: the rest
+                // of the line is one field, since a chord or JSON has spaces.
                 let mut b = line.trim().splitn(3, ' ').skip(1);
-                match (b.next(), b.next()) {
-                    (Some(action), Some(chord)) if !chord.trim().is_empty() => {
-                        ok.push(Export { kind, name: chord.trim().to_owned(), package: package.to_owned(), function: action.to_owned(), description: String::new() })
-                    }
-                    _ => refused.push(format!("{package} export {}: bind needs an action and a chord", i + 1)),
+                let (head, rest) = (b.next().unwrap_or(""), b.next().map_or("", str::trim));
+                let schema = kind == Kind::Schema;
+                if head.is_empty() || rest.is_empty() || schema && !serde_json::from_str::<serde_json::Value>(rest).is_ok_and(|v| v.is_object()) {
+                    refused.push(format!("{package} export {}: {}", i + 1, if schema { "schema needs a tool name and a JSON object" } else { "bind needs an action and a chord" }));
+                } else {
+                    let (name, function, description) = if schema { (head, "", rest) } else { (rest, head, "") };
+                    ok.push(Export { kind, name: name.to_owned(), package: package.to_owned(), function: function.to_owned(), description: description.to_owned() });
                 }
                 continue;
             }
@@ -776,12 +788,15 @@ pub mod bidamas {
         pub fn tools(&self, off: &[String]) -> Vec<super::ToolSpec> {
             self.exports
                 .iter()
-                .filter(|e| e.kind == Kind::Tool && !off.contains(&e.package))
+                .filter(|e| matches!(e.kind, Kind::Tool | Kind::PureTool) && !off.contains(&e.package))
                 .map(|e| super::ToolSpec {
                     name: e.name.clone(),
                     description: e.description.trim().to_owned(),
-                    schema: Some(serde_json::json!({"type": "object", "properties": {"arg": {"type": "string"}}, "required": ["arg"]})),
-                    read_only: false,
+                    schema: Some(self.get(Kind::Schema, &e.name).and_then(|s| serde_json::from_str(&s.description).ok()).unwrap_or_else(
+                        || serde_json::json!({"type": "object", "properties": {"arg": {"type": "string"}}, "required": ["arg"]}),
+                    )),
+                    read_only: e.kind == Kind::PureTool,
+                    pure: e.kind == Kind::PureTool,
                     script: super::Script::new(format!("{SCHEME}{}", e.package), e.function.clone()),
                 })
                 .collect()
@@ -946,6 +961,9 @@ pub struct ToolSpec {
     /// Whether the tool changes nothing (the permission gate lets read-only
     /// tools run unasked in default mode). Unset is treated as side-effecting.
     pub read_only: bool,
+    /// Whether the tool reads only its input: it runs with no store, and a
+    /// call that asks for an effect is refused.
+    pub pure: bool,
     pub script: Script,
 }
 
@@ -1014,7 +1032,14 @@ impl Tools {
         };
         let json = input.to_string();
         let extension = format!("tool {name}");
-        tokio::task::spawn_blocking(move || invoke(&extension, &spec.script, &[&json], ""))
+        tokio::task::spawn_blocking(move || {
+            let state = if spec.pure { None } else { state_path(&spec.script) };
+            let out = invoke_with_state(&extension, &spec.script, &[&json], "", state)?;
+            if spec.pure && !out.effects.is_empty() {
+                return Err(ExtError { extension, script: spec.script.to_string(), stage: Stage::Call, message: "a pure tool returns text and may not ask for effects".into() });
+            }
+            Ok(out)
+        })
             .await
             .unwrap_or_else(|e| Err(ExtError { extension: format!("tool {name}"), script: String::new(), stage: Stage::Call, message: format!("the blue task did not finish: {e}") }))
     }
@@ -1184,7 +1209,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let src = "def shout(input)\n  args = json_parse(input)\n  upcase(json_get(args, :text))\nend\n";
         let s = script(&dir, src, "shout");
-        let tools = Tools::new(vec![ToolSpec { name: "shout".into(), description: "upper-case".into(), schema: None, read_only: true, script: s }]);
+        let tools = Tools::new(vec![ToolSpec { name: "shout".into(), description: "upper-case".into(), schema: None, read_only: true, pure: false, script: s }]);
         assert!(tools.owns("shout") && !tools.owns("Read"));
         assert_eq!(tools.read_only("shout"), Some(true));
         let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
@@ -1636,10 +1661,52 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
         assert!(!t.read_only, "the gate asks before a switch");
         assert_eq!(t.schema.as_ref().unwrap()["required"], serde_json::json!(["arg"]));
         assert!(reg.tools(&["teikyou".to_owned()]).is_empty(), "configured off, it is gone");
-        let mine = ToolSpec { name: "switch_model".into(), description: "mine".into(), schema: None, read_only: true, script: Script::new("x.b", "f") };
+        let mine = ToolSpec { name: "switch_model".into(), description: "mine".into(), schema: None, read_only: true, pure: false, script: Script::new("x.b", "f") };
         let merged = Tools::new(vec![mine]).with_hosted(tools.clone(), &[]);
         assert_eq!(merged.tools().iter().filter(|t| t.name == "switch_model").map(|t| t.description.as_str()).collect::<Vec<_>>(), ["mine"], "a declared tool wins its name");
         assert!(Tools::new(vec![]).with_hosted(tools, &["switch_model"]).is_empty(), "a reserved name is never shadowed");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn yarukoto_ships_todowrite_pure_with_its_own_schema() {
+        let (reg, refused) = bidamas::Registry::load(&embedded(), &["yarukoto".to_owned()]);
+        assert!(refused.is_empty(), "{refused:?}");
+        let tools = reg.tools(&[]);
+        let t = tools.iter().find(|t| t.name == "TodoWrite").expect("hosted");
+        assert!(t.read_only && t.pure, "a pure tool runs unasked");
+        assert_eq!(t.schema.as_ref().unwrap()["required"], serde_json::json!(["todos"]), "its schema, not arg");
+        let input = serde_json::json!({"todos": [{"content": "read", "status": "completed"}, {"content": "edit", "status": "in_progress"}]});
+        let out = Tools::new(tools).call("TodoWrite", &input).await.unwrap();
+        assert_eq!(out.text(), "[x] read\n[>] edit\n1/2 done. Keep the list current as you work.");
+        assert!(out.effects.is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_pure_tool_that_asks_for_an_effect_or_the_store_is_refused() {
+        let dir = std::env::temp_dir().join(format!("arnes-pure-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("p.b");
+        std::fs::write(&p, "def hint(a)\n  arnes_hint(\"x\")\n  \"ok\"\nend\ndef keep(a)\n  v = arnes_store_get(\"k\")\n  arnes_store_set(\"k\", \"seen\")\n  if v == nil\n    \"fresh\"\n  else\n    v\n  end\nend\n").unwrap();
+        let spec = |f: &str, pure| ToolSpec { name: f.into(), description: String::new(), schema: None, read_only: pure, pure, script: Script::new(&p, f) };
+        let input = serde_json::json!({});
+        let pure = Tools::new(vec![spec("hint", true), spec("keep", true)]);
+        assert!(pure.call("hint", &input).await.unwrap_err().message.contains("may not ask for effects"));
+        assert_eq!(pure.call("keep", &input).await.unwrap().text(), "fresh");
+        assert_eq!(pure.call("keep", &input).await.unwrap().text(), "fresh", "a pure tool keeps no store");
+        assert!(Tools::new(vec![spec("hint", false)]).call("hint", &input).await.is_ok(), "the control: an ordinary tool may hint");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn a_schema_row_must_name_a_tool_and_hold_a_json_object() {
+        let (ok, refused) = bidamas::parse_exports("p", "schema T {\"type\": \"object\"}\nschema T [1]\nschema T\nschema T {not json");
+        assert_eq!(ok.len(), 1, "the good row, its JSON keeping its spaces");
+        assert_eq!(ok[0].description, "{\"type\": \"object\"}");
+        let (bind, _) = bidamas::parse_exports("p", "bind app:exit ctrl+x ctrl+c");
+        assert_eq!((bind[0].name.as_str(), bind[0].function.as_str()), ("ctrl+x ctrl+c", "app:exit"), "a bind keeps its chord whole");
+        assert_eq!(refused.len(), 3, "{refused:?}");
+        let (_, unknown) = bidamas::parse_exports("p", "nosuch x y");
+        assert!(unknown[0].contains("pure-tool, schema"), "{unknown:?}");
     }
 
     #[test]

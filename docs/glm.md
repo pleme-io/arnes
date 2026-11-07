@@ -58,7 +58,7 @@ From the research report of 2026-11-06 (sources in §8).
 | 9 | Compaction at a threshold, tool-result clearing first | OpenHands: same score, under half the cost per turn | `ContextExceeded` only |
 | 10 | Memory files at start, other files just in time | context rot measured on 18 models | `CLAUDE.md`/`AGENTS.md` loading (`docs/context-parity.md`) |
 | 11 | Byte-stable prefix: no timestamps, deterministic JSON, append-only | Manus; Anthropic docs | tools sorted; partly done |
-| 12 | A todo list the model rewrites | anecdote | none |
+| 12 | A todo list the model rewrites | anecdote | `yarukoto`'s `TodoWrite` (`docs/kernel.md` H14) |
 | 13 | Keep failed actions and errors in context | anecdote | kept |
 | 14 | Sub-agents for read, research and review; writes on one thread | Anthropic research system +90%, at about 15× tokens | `docs/channels.md` C2 |
 | 15 | Architect/editor pairs; best-of-N with a critic | Aider 77.4% → 80.5%; OpenHands 60.6% → 66.4% | channels make this a policy |

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "bluefile_b3": "b3:af790d7f5b605aaaaba83f99ab075d728fa09e32b63b841331375e2e0047fc6d",
+  "manifest": {
+    "schema": 1,
+    "name": "yarukoto",
+    "version": "0.1.0",
+    "needs": {
+      "deeta": "^0.1.0",
+      "ronri": "^0.1.0",
+      "yushutsu": "^0.2.0"
+    },
+    "when": "anytime",
+    "sources": {},
+    "packages": [],
+    "runs": {},
+    "tools": [],
+    "checks": {},
+    "apps": {},
+    "catalog": null
+  },
+  "sources": {}
+}
