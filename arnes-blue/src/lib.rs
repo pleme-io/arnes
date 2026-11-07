@@ -786,15 +786,14 @@ pub mod bidamas {
         /// The hosted tools, skipping packages named in `off`.
         #[must_use]
         pub fn tools(&self, off: &[String]) -> Vec<super::ToolSpec> {
+            let arg = serde_json::json!({"type": "object", "properties": {"arg": {"type": "string"}}, "required": ["arg"]});
             self.exports
                 .iter()
                 .filter(|e| matches!(e.kind, Kind::Tool | Kind::PureTool) && !off.contains(&e.package))
                 .map(|e| super::ToolSpec {
                     name: e.name.clone(),
                     description: e.description.trim().to_owned(),
-                    schema: Some(self.get(Kind::Schema, &e.name).and_then(|s| serde_json::from_str(&s.description).ok()).unwrap_or_else(
-                        || serde_json::json!({"type": "object", "properties": {"arg": {"type": "string"}}, "required": ["arg"]}),
-                    )),
+                    schema: Some(self.get(Kind::Schema, &e.name).and_then(|s| serde_json::from_str(&s.description).ok()).unwrap_or_else(|| arg.clone())),
                     read_only: e.kind == Kind::PureTool,
                     pure: e.kind == Kind::PureTool,
                     script: super::Script::new(format!("{SCHEME}{}", e.package), e.function.clone()),
@@ -1040,8 +1039,8 @@ impl Tools {
             }
             Ok(out)
         })
-            .await
-            .unwrap_or_else(|e| Err(ExtError { extension: format!("tool {name}"), script: String::new(), stage: Stage::Call, message: format!("the blue task did not finish: {e}") }))
+        .await
+        .unwrap_or_else(|e| Err(ExtError { extension: format!("tool {name}"), script: String::new(), stage: Stage::Call, message: format!("the blue task did not finish: {e}") }))
     }
 }
 
@@ -1686,7 +1685,11 @@ def broken(p)\n  raise(:bad, \"bad hook\")\nend\n";
         let dir = std::env::temp_dir().join(format!("arnes-pure-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join("p.b");
-        std::fs::write(&p, "def hint(a)\n  arnes_hint(\"x\")\n  \"ok\"\nend\ndef keep(a)\n  v = arnes_store_get(\"k\")\n  arnes_store_set(\"k\", \"seen\")\n  if v == nil\n    \"fresh\"\n  else\n    v\n  end\nend\n").unwrap();
+        std::fs::write(
+            &p,
+            "def hint(a)\n  arnes_hint(\"x\")\n  \"ok\"\nend\ndef keep(a)\n  v = arnes_store_get(\"k\")\n  arnes_store_set(\"k\", \"seen\")\n  if v == nil\n    \"fresh\"\n  else\n    v\n  end\nend\n",
+        )
+        .unwrap();
         let spec = |f: &str, pure| ToolSpec { name: f.into(), description: String::new(), schema: None, read_only: pure, pure, script: Script::new(&p, f) };
         let input = serde_json::json!({});
         let pure = Tools::new(vec![spec("hint", true), spec("keep", true)]);

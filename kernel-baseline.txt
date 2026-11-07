@@ -14,7 +14,7 @@ rust: arnes 2907
 # provider transport: network, keys, retries, fallback execution, each route's auth header, failures judged by handan into one typed verdict, the route that served and every route's health, the declared endpoints arnes_http reaches, a scripted provider for multi-call turn tests (testing::scripted_server), the server-sent-event stream assembled into the same message (stream::Assembler), a spent balance or quota judged exhausted and failed over unretried
 rust: arnes-anthropic 741
 # the bidama host: resolution, budgets, interrupts, capability scope, the reach a choose-route hook is handed, one embedded line per bidama it ships, the provider export kind, the hosted tool kind, the compact arm, the pure-tool kind (no store, an effect refuses the call: a purity the gate trusts, so a bidama may not grant it itself) and a hosted tool's schema row
-rust: arnes-blue 823
+rust: arnes-blue 822
 # configuration loading and hot reload (shikumi), the declaration layer, routes as data, endpoints whose keys never reach blue, the routing section, the typed border for the provider fact rows a bidama declares (teikyou), so a new provider is rows, not Rust, the login key store read after :api-key-file and key-env, a config moved to a declared provider, ui.wheel and ui.wheel-lines, history.walk, turn.queued, turn.stream, turn.compact, turn.loop-nudge, a declared tool is never pure
 rust: arnes-config 1913
 # conversation and usage types the kernel crates share
