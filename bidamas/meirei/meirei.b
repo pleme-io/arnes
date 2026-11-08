@@ -13,6 +13,8 @@ through `yushutsu`. The kernel refuses a bad row alone and hosts the rest.
 
 Host calls exist only inside arnes, so the commands are tested by
 arnes-blue; the exports are tested here.
+
+    contains?(exports, "start a new conversation") #=> true
 """
 
 use("ronri", [:every])

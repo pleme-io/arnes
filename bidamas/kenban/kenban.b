@@ -7,6 +7,8 @@ package's exports: the action is an arnes action id (`app:interrupt`,
 Claude Code's defaults. A bidama called `kenban` earlier on arnes's path
 replaces the whole keymap; `keys.prompt` in the config edits it (bind,
 unbind) on top, entry by entry.
+
+    includes(exports, "bind app:interrupt ctrl+c") #=> true
 """
 
 use("moji", [:includes])
