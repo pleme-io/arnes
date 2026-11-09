@@ -1,4 +1,4 @@
-# Hybrid artifact (repo-forge THEORY §VI.3): generated from repo-forge.lisp,
+# Hybrid artifact: generated from repo-forge.lisp,
 # then hand-extended past what that spec can express. `repo-forge migrate`
 # skips it; `migrate --include-hybrid` would REVERT it — and reintroduce the
 # bug the generator produced: it rendered option names (:model/:theme) as
