@@ -1,6 +1,6 @@
 # Arnes
 
-> **★★★ CSE / Knowable Construction.** This repo operates under **Constructive Substrate Engineering** — canonical specification at [`pleme-io/theory/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md`](https://github.com/pleme-io/theory/blob/main/CONSTRUCTIVE-SUBSTRATE-ENGINEERING.md). The Compounding Directive (operational rules: solve once, load-bearing fixes only, idiom-first, models stay current, direction beats velocity) is in the org-level pleme-io/CLAUDE.md ★★★ section. Read both before non-trivial changes.
+> **★★★ CSE / Knowable Construction.** This repo operates under **Constructive Substrate Engineering**. The Compounding Directive (operational rules: solve once, load-bearing fixes only, idiom-first, models stay current, direction beats velocity) is in the org-level pleme-io/CLAUDE.md ★★★ section. Read it before non-trivial changes.
 
 > Rust/tatara-lisp open-source Claude-Code-equivalent agent harness
 
@@ -28,7 +28,7 @@ before writing: blue, then tatara-lisp, then Rust only for what neither can
 express (the host seam, the TUI engine, a system call). A capability blue lacks
 is built into blue (a bidama or runtime primitive), not routed around in Rust.
 Live per-tick state (MCP server health first) comes from vigies on the shared
-vigy-runtime, authored in blue (`theory/VIGY.md`, `vigy` skill).
+vigy-runtime, authored in blue (`vigy` skill).
 Plan and extension points: `docs/programmability.md`. Procedure: the
 `pleme-style` and `bidama` skills.
 

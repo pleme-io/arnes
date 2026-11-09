@@ -2,7 +2,7 @@
   "schema_version": 2,
   "cargo_lock_sha256": "326c16dd92b4a45a4471698ba2ba2c431e70ff7b909289cf76078e407108921b",
   "manifest_sha256": {
-    "Cargo.toml": "ee8996a4f7ea512f5fe5fd52087a7e854e3cf9a68824a77a2508d79382fd2260",
+    "Cargo.toml": "db87488b59310dc99276eef192bc97ecaf5ac685056ce52b9b56d1fd43dad06c",
     "arnes-anthropic/Cargo.toml": "d7c210ea90ef1e2d2000a88c9f3580125ff7fff62476835e3b41aa70ab2760e8",
     "arnes-blue/Cargo.toml": "b2ab691e899859e76aec8123ff125f8a7b1505156e67894bb2d29cd1a440c10a",
     "arnes-config/Cargo.toml": "45c6769c4e16f5fb85ae6026d856df6f5e70c967345e37d344ab9280caf5169e",

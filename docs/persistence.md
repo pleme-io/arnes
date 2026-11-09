@@ -5,7 +5,7 @@ caching and storing data and we need some sort of concept of persistence in
 arnes and caching and also management of the filesystem and things we keep
 there."*
 
-This is the plan, fixed before code (`theory/BLUE.md` §I.1): the reuse map, the
+This is the plan, fixed before code: the reuse map, the
 shape, the rung each piece is on, and the dependency order.
 
 ## Reuse map (read from source 2026-09-28)

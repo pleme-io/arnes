@@ -10,8 +10,8 @@ and integrate and refactor all toward extreme code efficiency and re-use"*.
 So arnes is two things: a Rust **kernel** that hosts bidamas, and a set of
 **bidamas** that are arnes's features. Every feature a user sees is a function
 in a bidama, resolved by name, replaceable by a bidama of the same name, and
-configurable off. This plan follows `theory/BLUE.md` §I.1 (reuse map, shape,
-idioms, dependency order) and extends `docs/programmability.md`, which built the
+configurable off. This plan states the reuse map, shape,
+idioms and dependency order, and extends `docs/programmability.md`, which built the
 seam (blue's `hosted` API, user commands, tools, hooks, vigies).
 
 ## 1. What the kernel is

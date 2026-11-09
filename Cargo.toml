@@ -21,7 +21,7 @@ arnes-config = { path = "arnes-config" }
 arnes-blue = { path = "arnes-blue" }
 arnes-store = { path = "arnes-store" }
 arnes-vigy = { path = "arnes-vigy" }
-# vigy: the one reconciler runtime every host embeds (theory/VIGY.md).
+# vigy: the one reconciler runtime every host embeds.
 vigy-runtime = { git = "https://github.com/pleme-io/vigy" }
 vigy-eval = { git = "https://github.com/pleme-io/vigy" }
 vigy-types = { git = "https://github.com/pleme-io/vigy" }

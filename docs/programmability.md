@@ -2,8 +2,8 @@
 
 Operator, 2026-09-28: arnes is shikumi-programmable, meaning tatara-lisp
 programmable and blue programmable, with blue as the primary way to implement
-anything in arnes. This is the plan, fixed before code (`theory/BLUE.md` §I.1:
-reuse map, shape, idioms, dependency order).
+anything in arnes. This is the plan, fixed before code:
+reuse map, shape, idioms, dependency order.
 
 ## The split: declared in config, implemented in blue
 

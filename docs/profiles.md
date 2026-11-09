@@ -6,7 +6,7 @@ load and unload different mcp servers, skills, and contexts"*, then
 *"configurations access"* and *"all should be configurable and programmable
 shikumi bluelang style"*.
 
-This is the plan, fixed before code (`theory/BLUE.md` §I.1): reuse map, shape,
+This is the plan, fixed before code: reuse map, shape,
 idioms, dependency order. Every knob below is a `docs/configuration.md` row, a
 typed field in `arnes-config` and a typed leaf in `module/default.nix`; every
 policy is a blue hook with the Rust side only the mechanism.
